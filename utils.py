@@ -1,4 +1,3 @@
-
 import numpy as np
 import random, sys, os, time, glob, math, itertools, pickle
 import parse
@@ -23,7 +22,7 @@ EXPERIMENT, BASE_DIR = open("config/jobinfo.txt").read().strip().split(', ')
 JOB = "_".join(EXPERIMENT.split("_")[0:-1])
 
 MODELS_DIR = f"{BASE_DIR}/models"
-DATA_DIRS = [f"/taskonomy-data/taskonomydata", 'data']
+DATA_DIRS = [f"/datasets/taskonomydata", 'data']
 RESULTS_DIR = f"{BASE_DIR}/results/results_{EXPERIMENT}"
 SHARED_DIR = f"{BASE_DIR}/shared"
 OOD_DIR = f"{SHARED_DIR}/ood_standard_set"

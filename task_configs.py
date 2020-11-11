@@ -17,12 +17,7 @@ from torchvision import transforms
 
 from utils import *
 from models import DataParallelModel
-from modules.unet import UNet, UNetOld2, UNetOld
-from modules.percep_nets import Dense1by1Net
-from modules.depth_nets import UNetDepth
-from modules.resnet import ResNetClass
 import IPython
-
 from PIL import ImageFilter
 from skimage.filters import gaussian
 
@@ -37,41 +32,6 @@ class GaussianBulr(object):
 
     def __repr__(self):
         return 'GaussianBulr Filter with Radius {:d}'.format(self.radius)
-
-
-""" Model definitions for launching new transfer jobs between tasks. """
-model_types = {
-    ('normal', 'principal_curvature'): lambda : Dense1by1Net(),
-    ('normal', 'depth_zbuffer'): lambda : UNetDepth(),
-    ('normal', 'reshading'): lambda : UNet(downsample=5),
-    ('depth_zbuffer', 'normal'): lambda : UNet(downsample=6, in_channels=1, out_channels=3),
-    ('reshading', 'normal'): lambda : UNet(downsample=4, in_channels=3, out_channels=3),
-    ('sobel_edges', 'principal_curvature'): lambda : UNet(downsample=5, in_channels=1, out_channels=3),
-    ('depth_zbuffer', 'principal_curvature'): lambda : UNet(downsample=4, in_channels=1, out_channels=3),
-    ('principal_curvature', 'depth_zbuffer'): lambda : UNet(downsample=6, in_channels=3, out_channels=1),
-    ('rgb', 'normal'): lambda : UNet(downsample=6),
-    ('rgb', 'keypoints2d'): lambda : UNet(downsample=3, out_channels=1),
-}
-
-def get_model(src_task, dest_task):
-
-    if isinstance(src_task, str) and isinstance(dest_task, str):
-        src_task, dest_task = get_task(src_task), get_task(dest_task)
-
-    if (src_task.name, dest_task.name) in model_types:
-        return model_types[(src_task.name, dest_task.name)]()
-
-    elif isinstance(src_task, ImageTask) and isinstance(dest_task, ImageTask):
-        return UNet(downsample=5, in_channels=src_task.shape[0], out_channels=dest_task.shape[0])
-
-    elif isinstance(src_task, ImageTask) and isinstance(dest_task, ClassTask):
-        return ResNet(in_channels=src_task.shape[0], out_channels=dest_task.classes)
-
-    elif isinstance(src_task, ImageTask) and isinstance(dest_task, PointInfoTask):
-        return ResNet(out_channels=dest_task.out_channels)
-
-    return None
-
 
 
 """
@@ -255,50 +215,6 @@ class ImageTask(Task):
             transforms.ToTensor(),
             self.transform]
         )
-
-class ImageClassTask(ImageTask):
-    """ Output space for image-class segmentation tasks """
-
-    def __init__(self, *args, **kwargs):
-
-        self.classes = kwargs.pop("classes", (3, 256, 256))
-        super().__init__(*args, **kwargs)
-
-    def norm(self, pred, target):
-        loss = F.kl_div(F.log_softmax(pred, dim=1), F.softmax(target, dim=1))
-        return loss, (loss.detach(),)
-
-    def plot_func(self, data, name, logger, resize=None):
-        _, idx = torch.max(data, dim=1)
-        idx = idx.float()/16.0
-        idx = idx.unsqueeze(1).expand(-1, 3, -1, -1)
-        logger.images(idx.clamp(min=0, max=1), name, nrow=2, resize=resize or self.resize)
-
-    def file_loader(self, path, resize=None):
-
-        data = (self.image_transform(Image.open(open(path, 'rb')))*255.0).long()
-        one_hot = torch.zeros((self.classes, data.shape[1], data.shape[2]))
-        one_hot = one_hot.scatter_(0, data, 1)
-        return one_hot
-
-
-class PointInfoTask(Task):
-    """ Output space for point-info prediction tasks (what models do we evem use?) """
-
-    def __init__(self, *args, **kwargs):
-
-        self.point_type = kwargs.pop("point_type", "vanishing_points_gaussian_sphere")
-        self.out_channels = 9
-        super().__init__(*args, **kwargs)
-
-    def plot_func(self, data, name, logger):
-        logger.window(name, logger.visdom.text, str(data.data.cpu().numpy()))
-
-    def file_loader(self, path, resize=None):
-        points = json.load(open(path))[self.point_type]
-        return np.array(points['x'] + points['y'] + points['z'])
-
-
 
 
 """

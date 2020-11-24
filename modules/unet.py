@@ -64,7 +64,7 @@ class Unet_LS_down(nn.Module):
     def __init__(self, downsample=6, in_channel=3):
         super().__init__()
         
-        self.downsample, self.in_channel = downsampla, in_channel
+        self.downsample, self.in_channel = downsample, in_channel
         self.down1 = UNet_down_block(in_channels, 16, False)
         self.down_blocks = nn.ModuleList(
             [UNet_down_block(2**(4+i), 2**(5+i), True) for i in range(0, downsample)]
@@ -100,7 +100,7 @@ class Unet_LS_up(nn.Module):
     def __init__(self, downsample=6, out_channel=3):
         super().__init__()
         
-        self.donwsample, self.out_channel = downsample, out_channel
+        self.downsample, self.out_channel = downsample, out_channel
         
         bottleneck = 2**(4 + downsample)
         self.mid_conv3 = torch.nn.Conv2d(bottleneck, bottleneck, 3, padding=1)
@@ -145,10 +145,17 @@ class UNet_LS(TrainableModel):
         self.in_channel, self.out_channel, self.downsample = in_channel, out_channel, downsample
         
         if not isinstance(model_down, UNet_LS_down):
-            model_down = UNet_LS_down(downsample=self.donwsample, in_channel=self.in_channel)
+            model_down = UNet_LS_down(downsample=self.downsample, in_channel=self.in_channel)
+        else:
+            self.in_channel = model_down.in_channel
+            self.downsample = model_down.downsample
         if not isinstance(model_up, UNet_LS_up):
             model_up = UNet_LS_up(downsampel=self.downsample, out_channel=self.out_channel)
+        else:
+            self.out_channel = model_up.out_channel
+            self.downsample = model_up.downsample
         
+        assert model_down.downsample==model_up.downsample, "UNet up-model is not match UNet down-model"
         self.blocks = nn.ModuleList([model_down, model_up])
         
         self.load_weights(path_down=path_down, path_up=path_up)
@@ -194,7 +201,9 @@ class UNet_LS(TrainableModel):
                     model_down=model_down, model_up=model_up)
         return model
         
-    def load_weights(self, path_up=None, path_down=None):
+    def load_weights(self, path={}):
+        path_up = path.get("up", None)
+        path_down = path.get("down", None)
         if path_down is not None:
             self.block[0].load_weights(path_down)
         

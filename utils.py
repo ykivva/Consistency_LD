@@ -22,11 +22,10 @@ EXPERIMENT, BASE_DIR = open("config/jobinfo.txt").read().strip().split(', ')
 JOB = "_".join(EXPERIMENT.split("_")[0:-1])
 
 MODELS_DIR = f"{BASE_DIR}/models"
-DATA_DIRS = [f"/taskonomy-data/taskonomydata", 'data']
+DATA_DIRS = [f"/datasets/taskonomydata", 'data']
 RESULTS_DIR = f"{BASE_DIR}/results/results_{EXPERIMENT}"
 SHARED_DIR = f"{BASE_DIR}/shared"
 OOD_DIR = f"{SHARED_DIR}/ood_standard_set"
-USE_RAID = False
 
 # os.system(f"mkdir -p {RESULTS_DIR}")
 
@@ -66,7 +65,7 @@ def get_files(exp, data_dirs=DATA_DIRS, recursive=False):
     # print ("Cache file: ", cache)
     # if os.path.exists(cache):
     #     return pickle.load(open(cache, 'rb'))
-
+    
     files, seen = [], set()
     for data_dir in data_dirs:
         for file in glob.glob(f'{data_dir}/{exp}', recursive=recursive):

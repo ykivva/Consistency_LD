@@ -55,7 +55,7 @@ from fire import Fire
 def main(
     loss_config="multiperceptual", mode="winrate", visualize=False,
     fast=False, batch_size=None,
-    subset_size=None, max_epochs=800, dataaug=False, **kwargs,
+    subset_size=None, max_epochs=500, dataaug=False, **kwargs,
 ):
 
 
@@ -77,13 +77,6 @@ def main(
 
     train = RealityTask("train", train_dataset, batch_size=batch_size, shuffle=True)
     val = RealityTask("val", val_dataset, batch_size=batch_size, shuffle=True)
-   
-   
-    test_set = load_test(energy_loss.get_tasks("test"), buildings=['almena', 'albertville','espanola'])
-    ood_set = load_ood(energy_loss.get_tasks("ood"))
-    test = RealityTask.from_static("test", test_set, energy_loss.get_tasks("test"))
-    ood = RealityTask.from_static("ood", ood_set, [tasks.rgb,])
-    realities = [train, val, test, ood]
 
     # GRAPH
     graph = TaskGraph(tasks=energy_loss.tasks + realities, pretrained=True, finetuned=False,
@@ -92,14 +85,6 @@ def main(
     )
     graph.compile(torch.optim.Adam, lr=3e-5, weight_decay=2e-6, amsgrad=True)
 
-    # LOGGING
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    logger = VisdomLogger("train", env=JOB)
-    logger.add_hook(lambda logger, data: logger.step(), feature="loss", freq=20)
-    logger.add_hook(lambda _, __: graph.save(f"{RESULTS_DIR}/graph.pth"), feature="epoch", freq=1)
-    energy_loss.logger_hooks(logger)
-    energy_loss.plot_paths(graph, logger, realities, prefix="start")
-
     # BASELINE
     graph.eval()
     with torch.no_grad():
@@ -107,21 +92,14 @@ def main(
             val_loss, _ = energy_loss(graph, realities=[val])
             val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
-            logger.update("loss", val_loss)
 
         for _ in range(0, train_step*4):
             train_loss, _ = energy_loss(graph, realities=[train])
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             train.step()
-            logger.update("loss", train_loss)
-    energy_loss.logger_update(logger)
 
     # TRAINING
     for epochs in range(0, max_epochs):
-
-        logger.update("epoch", epochs)
-        energy_loss.plot_paths(graph, logger, realities, prefix="")
-        if visualize: return
 
         graph.train()
         for _ in range(0, train_step):
@@ -129,7 +107,6 @@ def main(
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             graph.step(train_loss)
             train.step()
-            logger.update("loss", train_loss)
 
         graph.eval()
         for _ in range(0, val_step):
@@ -137,11 +114,7 @@ def main(
                 val_loss, _ = energy_loss(graph, realities=[val])
                 val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
-            logger.update("loss", val_loss)
 
-        energy_loss.logger_update(logger)
-
-        logger.step()
-
+            
 if __name__ == "__main__":
     Fire(main)

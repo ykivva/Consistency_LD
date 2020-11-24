@@ -113,17 +113,13 @@ def load_ood(tasks=[tasks.rgb], ood_path=OOD_DIR, sample=21):
 class TaskDataset(Dataset):
 
     def __init__(self, buildings, tasks=[get_task("rgb"), get_task("normal")], data_dirs=DATA_DIRS,
-            building_files=None, convert_path=None, use_raid=USE_RAID, resize=None, unpaired=False, shuffle=True):
+            building_files=None, convert_path=None, resize=None, unpaired=False, shuffle=True):
 
         super().__init__()
         self.buildings, self.tasks, self.data_dirs = buildings, tasks, data_dirs
         self.building_files = building_files or self.building_files
         self.convert_path = convert_path or self.convert_path
         self.resize = resize
-        if use_raid:
-            self.convert_path = self.convert_path_raid
-            self.building_files = self.building_files_raid
-
         self.file_map = {}
         for data_dir in self.data_dirs:
             for file in glob.glob(f'{data_dir}/*'):
@@ -150,29 +146,18 @@ class TaskDataset(Dataset):
         """ Gets all the tasks in a given building (grouping of data) """
         return get_files(f"{building}_{task.file_name}/{task.file_name}/*.{task.file_ext}", self.data_dirs)
 
-    def building_files_raid(self, task, building):
-        return get_files(f"{task.file_name}/{building}/*.{task.file_ext}", self.data_dirs)
-
     def convert_path(self, source_file, task):
         """ Converts a file from task A to task B. Can be overriden by subclasses"""
         source_file = "/".join(source_file.split('/')[-3:])
         result = parse.parse("{building}_{task}/{task}/{view}_domain_{task2}.{ext}", source_file)
         building, _, view = (result["building"], result["task"], result["view"])
-        dest_file = f"{building}_{task.file_name}/{task.file_name}/{view}_domain_{task.file_name_alt}.{task.file_ext}"
+        dest_file = f"{building}_{task.file_name}/{task.file_name}/{view}_domain_{task.file_name}.{task.file_ext}"
         if f"{building}_{task.file_name}" not in self.file_map:
             print (f"{building}_{task.file_name} not in file map")
             # IPython.embed()
             return ""
         data_dir = self.file_map[f"{building}_{task.file_name}"]
         return f"{data_dir}/{dest_file}"
-
-    def convert_path_raid(self, full_file, task):
-        """ Converts a file from task A to task B. Can be overriden by subclasses"""
-        source_file = "/".join(full_file.split('/')[-3:])
-        result = parse.parse("{task}/{building}/{view}.{ext}", source_file)
-        building, _, view = (result["building"], result["task"], result["view"])
-        dest_file = f"{task.file_name}/{building}/{view}.{task.file_ext}"
-        return f"{full_file[:-len(source_file)-1]}/{dest_file}"
 
     def __len__(self):
         return len(self.idx_files)
@@ -231,9 +216,6 @@ class ImageDataset(Dataset):
     ):
 
         self.tasks = tasks
-        #if not USE_RAID and files is None:
-        #    os.system(f"ls {data_dir}/*.png")
-        #    os.system(f"ls {data_dir}/*.png")
 
         self.files = files \
             or sorted(
@@ -265,7 +247,9 @@ if __name__ == "__main__":
 
     logger = VisdomLogger("data", env=JOB)
     train_dataset, val_dataset, train_step, val_step = load_train_val(
-        [tasks.rgb, tasks.normal, tasks.principal_curvature, tasks.rgb(size=512)],
+        [tasks.rgb, tasks.normal,],
+        train_buildings=["almena"],
+        val_buildings=["almena"],
         batch_size=32,
     )
     print ("created dataset")

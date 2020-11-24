@@ -52,18 +52,16 @@ class Task(object):
     }
     """ General task output space"""
     def __init__(self, name,
-            file_name=None, file_name_alt=None, file_ext="png", file_loader=None,
+            file_name=None, file_ext="png", file_loader=None,
             plot_func=None
         ):
 
         super().__init__()
         self.name = name
         self.file_name, self.file_ext = file_name or name, file_ext
-        self.file_name_alt = file_name_alt or self.file_name
         self.file_loader = file_loader or self.file_loader
         self.plot_func = plot_func or self.plot_func
         self.variance = Task.variances.get(name, 1.0)
-        self.kind = name
 
     def norm(self, pred, target, batch_mean=True, compute_mse=True):
         if batch_mean:
@@ -263,10 +261,6 @@ tasks = [
         shape=(1, 256, 256),
         mask_val=1.0,
         transform=partial(clamp_maximum_transform, max_val=8000.0),
-    ),
-    ImageClassTask('segment_semantic',
-        file_name_alt="segmentsemantic",
-        shape=(16, 256, 256), classes=16,
     ),
     ImageTask('reshading', mask_val=0.0507),
     ImageTask('edge_occlusion',

@@ -11,8 +11,8 @@ import torch.nn.functional as F
 from utils import *
 from models import TrainableModel, WrapperModel
 from datasets import TaskDataset
-from task_configs import get_task, task_map, tasks, get_model, RealityTask
-from transfers import Transfer, RealityTransfer, get_transfer_name
+from task_configs import get_task, task_map, tasks, RealityTask
+from transfers import Transfer, RealityTransfer
 
 #from modules.gan_dis import GanDisNet
 
@@ -25,7 +25,8 @@ class TaskGraph(TrainableModel):
     def __init__(
         self, tasks=tasks, pretrained=True, finetuned=False,
         reality=[], task_filter=[],
-        freeze_list=[], lazy=False, initialize_from_transfer=True,
+        freeze_list={"up": [], "down": []},
+        lazy=False, initialize_from_transfer=True,
     ):
 
         super().__init__()
@@ -53,10 +54,12 @@ class TaskGraph(TrainableModel):
                 self.edges_in[task.name] = transfer_up
                 self.edges_out[task.name] = transfer_down
                 self.all_edges[transfer_up.name] = transfer_up
-                self.all_edges[transfer_down.name] = = transfer_down
+                self.all_edges[transfer_down.name] = transfer_down
                 if isinstance(transfer, nn.Module):
-                    self.params[transfer_up.name] = transfer_up
-                    self.params[transfer_down.name] = transfer_down
+                    if task.name not in freeze_list["up"]:
+                        self.params[transfer_up.name] = transfer_up
+                    if task.name not in freeze_list["down"]:
+                        self.params[transfer_down.name] = transfer_down
                     try:
                         if not lazy:
                             transfer_up.load_model()
@@ -67,11 +70,13 @@ class TaskGraph(TrainableModel):
 
         self.params = nn.ModuleDict(self.params)
     
-    def edge(self, src_task, dest_task):
+    def edge(self, x, src_task, dest_task):
         if isinstance(src_task, RealityTask):
-            return self.edges_out[(src_task.name, dest_task.name)]
+            return self.edges_out[(src_task.name, dest_task.name)]()
         else:
-            lambda x:self.edges_in[dest_task.name](self.edges_out[src_task.name](x))
+            x = self.edges_out[src_task.name](x)
+            x = self.edges_in[dest_task.name](self.edge_out[src_task.name].xvals, x)
+            return x
             
 
     def sample_path(self, path, reality=None, use_cache=False, cache={}):
@@ -80,7 +85,7 @@ class TaskGraph(TrainableModel):
         for i in range(1, len(path)):
             try:
                 x = cache.get(tuple(path[0:(i+1)]),
-                    self.edge(path[i-1], path[i])(x)
+                    self.edge(x, path[i-1], path[i])
                 )
             except KeyError:
                 return None

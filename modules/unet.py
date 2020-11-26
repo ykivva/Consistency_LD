@@ -34,10 +34,8 @@ class UNet_up_block(nn.Module):
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.relu(self.bn3(self.conv3(x)))
         return x
+
     
-    def save(self, )
-
-
 class UNet_down_block(nn.Module):
     def __init__(self, input_channel, output_channel, down_size=True):
         super().__init__()
@@ -60,7 +58,7 @@ class UNet_down_block(nn.Module):
         return x
     
 
-class Unet_LS_down(nn.Module):
+class UNet_LS_down(TrainableModel):
     def __init__(self, downsample=6, in_channel=3):
         super().__init__()
         
@@ -96,7 +94,7 @@ class Unet_LS_down(nn.Module):
         self.load_state_dict(torch.load(path))
 
         
-class Unet_LS_up(nn.Module):
+class UNet_LS_up(TrainableModel):
     def __init__(self, downsample=6, out_channel=3):
         super().__init__()
         
@@ -105,8 +103,6 @@ class Unet_LS_up(nn.Module):
         bottleneck = 2**(4 + downsample)
         self.mid_conv3 = torch.nn.Conv2d(bottleneck, bottleneck, 3, padding=1)
         self.bn3 = nn.GroupNorm(8, bottleneck)
-        self.mid_conv4 = torch.nn.Conv2d(bottleneck, bottleneck, 3, padding=1)
-        self.bn4 = nn.GroupNorm(8, bottleneck)
 
         self.up_blocks = nn.ModuleList(
             [UNet_up_block(2**(4+i), 2**(5+i), 2**(4+i)) for i in range(0, downsample)]
@@ -119,7 +115,6 @@ class Unet_LS_up(nn.Module):
     
     def forward(self, xvals, x):
         x = self.relu(self.bn3(self.mid_conv3(x)))
-        x = self.relu(self.bn4(self.mid_conv4(x)))
 
         for i in range(0, self.downsample)[::-1]:
             x = self.up_blocks[i](xvals[i], x)

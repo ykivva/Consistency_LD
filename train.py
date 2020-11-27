@@ -57,7 +57,6 @@ def main(
     subset_size=None, max_epochs=500, dataaug=False, **kwargs,
 ):
 
-    pdb.set_trace()
     # CONFIG
     batch_size = batch_size or (4 if fast else 64)
     energy_loss = get_energy_loss(config=loss_config, mode=mode, **kwargs)

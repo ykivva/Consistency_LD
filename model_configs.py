@@ -1,41 +1,42 @@
 from modules.unet import UNet_LS_down, UNet_LS_up, UNet_LS
+from utils import *
 
 model_types = {
     'normal': {
-        'down': lambda: UNet_LS_down(in_channels=3, downsample=DOWNSAMPLE),
-        'up' : lambda: UNet_LS_up(out_channels=3, downsample=DOWNSAMPLE),
+        'down': lambda: UNet_LS_down(in_channel=3, downsample=DOWNSAMPLE),
+        'up' : lambda: UNet_LS_up(out_channel=3, downsample=DOWNSAMPLE),
     },
     'sobel_edges': {
-        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1),
-        'up': lambda: UNet_LS_up(out_channels=1, downsample=DOWNSAMPLE),
+        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1),
+        'up': lambda: UNet_LS_up(out_channel=1, downsample=DOWNSAMPLE),
     },
     'reshading': {
         'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3),
-        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=3),
+        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3),
     },
     'keypoints2d': {
-        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1),
-        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=1),
+        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1),
+        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1),
     },
     'keypoints3d': {
-        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1),
-        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, in_channels=1),
+        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1),
+        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, in_channel=1),
     },
     'depth_zbuffer': {
-        'down': lambda: UNet_LS_down(in_channels=1, downsample=DOWNSAMPLE),
-        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=1),
+        'down': lambda: UNet_LS_down(in_channel=1, downsample=DOWNSAMPLE),
+        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1),
     },
     'principal_curvuture': {
-        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=3),
-        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=3),
+        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3),
+        'up' : lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3),
     },
     'edge_occlusion': {
-        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1),
-        'up': lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=1),
+        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1),
+        'up': lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1),
     },
     'rgb': {
-        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=3),
-        'up': lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=3),
+        'down': lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3),
+        'up': lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3),
     },
 }
 

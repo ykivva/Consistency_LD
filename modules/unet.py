@@ -58,12 +58,12 @@ class UNet_down_block(nn.Module):
         return x
     
 
-class UNet_LS_down(TrainableModel):
+class UNet_LS_down(nn.Module):
     def __init__(self, downsample=6, in_channel=3):
         super().__init__()
         
         self.downsample, self.in_channel = downsample, in_channel
-        self.down1 = UNet_down_block(in_channels, 16, False)
+        self.down1 = UNet_down_block(in_channel, 16, False)
         self.down_blocks = nn.ModuleList(
             [UNet_down_block(2**(4+i), 2**(5+i), True) for i in range(0, downsample)]
         )
@@ -94,7 +94,7 @@ class UNet_LS_down(TrainableModel):
         self.load_state_dict(torch.load(path))
 
         
-class UNet_LS_up(TrainableModel):
+class UNet_LS_up(nn.Module):
     def __init__(self, downsample=6, out_channel=3):
         super().__init__()
         
@@ -110,7 +110,7 @@ class UNet_LS_up(TrainableModel):
 
         self.last_conv1 = nn.Conv2d(16, 16, 3, padding=1)
         self.last_bn = nn.GroupNorm(8, 16)
-        self.last_conv2 = nn.Conv2d(16, out_channels, 1, padding=0)
+        self.last_conv2 = nn.Conv2d(16, out_channel, 1, padding=0)
         self.relu = nn.ReLU()
     
     def forward(self, xvals, x):
@@ -153,7 +153,8 @@ class UNet_LS(TrainableModel):
         assert model_down.downsample==model_up.downsample, "UNet up-model is not match UNet down-model"
         self.blocks = nn.ModuleList([model_down, model_up])
         
-        self.load_weights(path_down=path_down, path_up=path_up)
+        if path_down or path_up not None:
+            self.load_weights(path_down=path_down, path_up=path_up)
 
     def forward(self, x):
         x = self.blocks[0](x)
@@ -204,4 +205,8 @@ class UNet_LS(TrainableModel):
         
         if path_up is not None:
             self.block[1].load_weights(path_up)
+    
+    def loss(self, pred, target):
+        loss = torch.tensor(0.0, device=pred.device)
+        return loss, (loss.detach(),)
             

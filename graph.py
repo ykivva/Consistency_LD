@@ -34,10 +34,11 @@ class TaskGraph(TrainableModel):
         self.tasks += [task.base for task in self.tasks if hasattr(task, "base")]
         self.pretrained, self.finetuned = pretrained, finetuned
         self.edges_in, self.edges_out, self.reality = {}, {}, reality
+        self.all_edges = {}
         self.initialize_from_transfer = initialize_from_transfer
         print('Creating graph with tasks:', self.tasks)
         self.params = {}
-
+        
         # construct transfer graph
         for task in self.tasks:
             transfer = None
@@ -55,19 +56,20 @@ class TaskGraph(TrainableModel):
                 self.edges_out[task.name] = transfer_down
                 self.all_edges[transfer_up.name] = transfer_up
                 self.all_edges[transfer_down.name] = transfer_down
-                if isinstance(transfer, nn.Module):
-                    if task.name not in freeze_list["up"]:
+                if isinstance(transfer_up, nn.Module) and isinstance(transfer_down, nn.Module):
+                    if transfer_up.name not in freeze_list:
                         self.params[transfer_up.name] = transfer_up
-                    if task.name not in freeze_list["down"]:
+                    if transfer_down.name not in freeze_list:
                         self.params[transfer_down.name] = transfer_down
                     try:
+                        pdb.set_trace()
                         if not lazy:
                             transfer_up.load_model()
                             transfer_down.load_model()
                     except Exception as e:
                         print(e)
                         IPython.embed()
-
+        pdb.set_trace()
         self.params = nn.ModuleDict(self.params)
     
     def edge(self, x, src_task, dest_task):

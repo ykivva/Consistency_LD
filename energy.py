@@ -95,12 +95,12 @@ def coeff_hook(coeff):
 
 class EnergyLoss(object):
 
-    def __init__(self, paths, losses,
+    def __init__(self, paths, losses, plots,
         pretrained=True, finetuned=False, freeze_list=[]
     ):
 
         self.paths, self.losses, self.plots = paths, losses, plots
-        self.freeze_list = [str((path[0].name, path[1].name)) for path in freeze_list]
+        self.freeze_list = [task.name+"_"+direction for direction in freeze_list for task in freeze_list[direction]]
         self.metrics = {}
 
         self.tasks = []
@@ -111,8 +111,8 @@ class EnergyLoss(object):
         
         for name, config in self.plots.items():
             for path in config["paths"]:
-                self.tasks = self.paths[path]
-
+                self.tasks += self.paths[path]
+                
         self.tasks = list(set(self.tasks))
 
     def compute_paths(self, graph, reality=None, paths=None):
@@ -264,6 +264,8 @@ class EnergyLoss(object):
                     if path == 'depth': continue
                     X = path_values.get(path, torch.zeros(shape, device=DEVICE))
                     if first: images +=[[]]
+                        
+                    pdb.set_trace()
 
                     if reality is 'ood' and error_passed_ood==0:
                         images[i].append(X.clamp(min=0, max=1).expand(*shape))
@@ -351,7 +353,7 @@ class WinRateEnergyLoss(EnergyLoss):
             percep_mse_gradnorms = dict.fromkeys(chosen_percep_mse_losses, 1.0)
             for loss_name in chosen_percep_mse_losses:
                 loss_dict[loss_name].mean().backward(retain_graph=True)
-                target_weights=list(graph.edge_map[f"('rgb', '{self.target_task}')"].model.parameters())
+                target_weigths = list(graph.edge_out['rgb'].model.parameters()) + list(graph.edge_in[f"{self.target_task}"].model.parameters())
                 percep_mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights])
                 graph.optimizer.zero_grad()
                 graph.zero_grad()

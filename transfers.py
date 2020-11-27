@@ -20,42 +20,44 @@ from modules.unet import UNet_LS_down, UNet_LS_up, UNet_LS
 from fire import Fire
 import IPython
 
+import pdb
+
 pretrained_transfers = {
     'normal': {
-        'down': (lambda: UNet_LS_down(in_channels=3, downsample=DOWNSAMPLE), f"{MODELS_DIR}/normal_down.pth"),
-        'up' : (lambda: UNet_LS_up(out_channels=3, downsample=DOWNSAMPLE), f"{MODELS_DIR}/normal_up.pth"),
+        'down': (lambda: UNet_LS_down(in_channel=3, downsample=DOWNSAMPLE), f"{MODELS_DIR}/normal_down.pth"),
+        'up' : (lambda: UNet_LS_up(out_channel=3, downsample=DOWNSAMPLE), f"{MODELS_DIR}/normal_up.pth"),
     },
     'sobel_edges': {
-        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1), f"{MODELS_DIR}/sobel_edges_down.pth"),
-        'up': (lambda: UNet_LS_up(out_channels=1, downsample=DOWNSAMPLE), f"{MODELS_DIR}/sobel_edges_up.pth"),
+        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1), f"{MODELS_DIR}/sobel_edges_down.pth"),
+        'up': (lambda: UNet_LS_up(out_channel=1, downsample=DOWNSAMPLE), f"{MODELS_DIR}/sobel_edges_up.pth"),
     },
     'reshading': {
         'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3), f"{MODELS_DIR}/reshading_down.pth"),
-        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=3), f"{MODELS_DIR}/reshading_up.pth"),
+        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3), f"{MODELS_DIR}/reshading_up.pth"),
     },
     'keypoints2d': {
-        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1), f"{MODELS_DIR}/keypoints2d_down.pth"),
-        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=1), f"{MODELS_DIR}/keypoints2d_up.pth"),
+        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1), f"{MODELS_DIR}/keypoints2d_down.pth"),
+        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1), f"{MODELS_DIR}/keypoints2d_up.pth"),
     },
     'keypoints3d': {
-        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1), f"{MODELS_DIR}/keypoints3d_down.pth"),
-        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, in_channels=1), f"{MODELS_DIR}/keypoints3d_up.pth"),
+        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1), f"{MODELS_DIR}/keypoints3d_down.pth"),
+        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, in_channel=1), f"{MODELS_DIR}/keypoints3d_up.pth"),
     },
     'depth_zbuffer': {
-        'down': (lambda: UNet_LS_down(in_channels=1, downsample=DOWNSAMPLE), f"{MODELS_DIR}/depth_zbuffer_down.pth"),
-        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=1), f"{MODELS_DIR}/depth__zbuffer_up.pth"),
+        'down': (lambda: UNet_LS_down(in_channel=1, downsample=DOWNSAMPLE), f"{MODELS_DIR}/depth_zbuffer_down.pth"),
+        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1), f"{MODELS_DIR}/depth__zbuffer_up.pth"),
     },
     'principal_curvuture': {
-        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=3), f"{MODELS_DIR}/principal_curvature_down.pth"),
-        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=3), f"{MODELS_DIR}/principal_curvature_up.pth"),
+        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3), f"{MODELS_DIR}/principal_curvature_down.pth"),
+        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3), f"{MODELS_DIR}/principal_curvature_up.pth"),
     },
     'edge_occlusion': {
-        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=1), f"{MODELS_DIR}/edge_occlusion_down.pth"),
-        'up': (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=1), f"{MODELS_DIR}/edge_occlusion_up.pth"),
+        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=1), f"{MODELS_DIR}/edge_occlusion_down.pth"),
+        'up': (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1), f"{MODELS_DIR}/edge_occlusion_up.pth"),
     },
     'rgb': {
-        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channels=3), f"{MODELS_DIR}/rgb_down.pth"),
-        'up': (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channels=3), f"{MODELS_DIR}/rgb_up.pth"),
+        'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3), f"{MODELS_DIR}/rgb_down.pth"),
+        'up': (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3), f"{MODELS_DIR}/rgb_up.pth"),
     },
 }
 
@@ -72,10 +74,12 @@ class Transfer(nn.Module):
         self.task, self.checkpoint = task, checkpoint
         self.name = name or f"{task.name}_{direction}"
         saved_type, saved_path = None, None
-        if path is None:
-            saved_type, saved_path = pretrained_transfers(task.name).get(direction, (None, None))
-            if saved_type!=None:
+        if path is None:                
+            saved_type, saved_path = pretrained_transfers.get(task.name, {}).get(direction, (None, None))
+            if saved_type!=None and saved_path!=None:
                 saved_type = saved_type()
+                if not os.path.exists(saved_path):
+                    saved_type.save(saved_path)                
         
         self.models_type, self.path = saved_type, path or saved_path
         self.model = None

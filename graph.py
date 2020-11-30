@@ -11,8 +11,8 @@ import torch.nn.functional as F
 from utils import *
 from models import TrainableModel, WrapperModel
 from datasets import TaskDataset
-from task_configs import get_task, task_map, tasks, RealityTask
-from transfers import Transfer, RealityTransfer
+from task_configs import get_task, task_map, tasks, RealityTask, ImageTask
+from transfers import UNet_Transfer, RealityTransfer, pretrained_transfers
 
 #from modules.gan_dis import GanDisNet
 
@@ -34,61 +34,64 @@ class TaskGraph(TrainableModel):
         self.tasks += [task.base for task in self.tasks if hasattr(task, "base")]
         self.pretrained, self.finetuned = pretrained, finetuned
         self.edges_in, self.edges_out, self.reality = {}, {}, reality
-        self.all_edges = {}
+        self.edge_map = {}
         self.initialize_from_transfer = initialize_from_transfer
         print('Creating graph with tasks:', self.tasks)
         self.params = {}
         
-        # construct transfer graph
         for task in self.tasks:
-            transfer = None
-            if isinstance(task, RealityTask):
-                for dest_task in tasks:
-                    if dest_task not in task.tasks: continue
-                    transfer = RealityTransfer(task, dest_task)
-                    self.edges_out[(task.name, dest_task.name)] = transfer
-            else:
-                transfer_down = Transfer(task, pretrained=pretrained, finetuned=finetuned, direction="down")
+            if isinstance(task, RealityTask): continue
+            model_type_down, path_down = pretrained_transfers.get(task.name, {})["down"]
+            model_type_up, path_up = pretrained_transfers.get(task.name, {})["up"]
+            transfer_down, transfer_up = model_type_down(), model_type_up()
+            if os.path.exists(path_down):
+                transfer_down.load_weights(path_down)
+                transfer_up.load_weights(path_up)
                 transfer_down.name = task.name + "_down"
-                transfer_up = Transfer(task, pretrained=pretrained, finetuned=finetuned, direction="up")
                 transfer_up.name = task.name + "_up"
                 self.edges_in[task.name] = transfer_up
                 self.edges_out[task.name] = transfer_down
-                self.all_edges[transfer_up.name] = transfer_up
-                self.all_edges[transfer_down.name] = transfer_down
                 if isinstance(transfer_up, nn.Module) and isinstance(transfer_down, nn.Module):
                     if transfer_up.name not in freeze_list:
                         self.params[transfer_up.name] = transfer_up
                     if transfer_down.name not in freeze_list:
                         self.params[transfer_down.name] = transfer_down
-                    try:
-                        pdb.set_trace()
-                        if not lazy:
-                            transfer_up.load_model()
-                            transfer_down.load_model()
-                    except Exception as e:
-                        print(e)
-                        IPython.embed()
-        pdb.set_trace()
+        
+        # construct transfer graph
+        for src_task, dest_task in itertools.product(self.tasks, self.tasks):
+            key = (src_task, dest_task)
+            transfer = None
+            if src_task==dest_task: continue
+            if isinstance(dest_task, RealityTask): continue
+            if isinstance(src_task, RealityTask):
+                transfer = RealityTransfer(src_task, dest_task)
+                self.edge_map[(src_task.name, dest_task.name)] = transfer
+            else:
+                transfer = UNet_Transfer(src_task, dest_task,
+                                         block={"down": self.edges_out[src_task.name], "up":self.edges_in[dest_task.name]})
+                self.edge_map[str((src_task.name, dest_task.name))] = transfer
+                try:
+                    if not lazy:
+                        transfer.to_parallel()
+                except Exception as e:
+                    print(e)
+                    IPython.embed()
         self.params = nn.ModuleDict(self.params)
     
-    def edge(self, x, src_task, dest_task):
-        if isinstance(src_task, RealityTask):
-            return self.edges_out[(src_task.name, dest_task.name)]()
-        else:
-            x = self.edges_out[src_task.name](x)
-            x = self.edges_in[dest_task.name](self.edge_out[src_task.name].xvals, x)
-            return x
-            
+    def edge(self, src_task, dest_task):
+        key = str((src_task.name, dest_task.name))
+        return self.edge_map[key]            
 
     def sample_path(self, path, reality=None, use_cache=False, cache={}):
+        pdb.set_trace()
         path = [reality or self.reality[0]] + path
         x = None
         for i in range(1, len(path)):
             try:
-                x = cache.get(tuple(path[0:(i+1)]),
-                    self.edge(x, path[i-1], path[i])
+                x = cache.get(tuple(path[0:i]),
+                    self.edge(path[i-1], path[i])(x)
                 )
+                pdb.set_trace()
             except KeyError:
                 return None
             except Exception as e:

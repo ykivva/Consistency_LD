@@ -12,7 +12,6 @@ from torch.utils.checkpoint import checkpoint
 
 from utils import *
 from task_configs import tasks, get_task, ImageTask
-from transfers import Transfer
 from datasets import TaskDataset, load_train_val
 
 from matplotlib.cm import get_cmap
@@ -254,6 +253,7 @@ class EnergyLoss(object):
             first = True
             error_passed_ood = 0
             for reality in realities:
+                pdb.set_trace()
                 with torch.no_grad():
                     path_values = self.compute_paths(graph, paths={path: self.paths[path] for path in paths}, reality=realities_map[reality])
 

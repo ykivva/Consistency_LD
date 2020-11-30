@@ -25,7 +25,7 @@ JOB = "_".join(EXPERIMENT.split("_")[0:-1])
 MODELS_DIR = f"{BASE_DIR}/models"
 DATA_DIRS = [f"/datasets/taskonomydata"]
 RESULTS_DIR = f"{BASE_DIR}/results/results_{EXPERIMENT}"
-SHARED_DIR = f"{BASE_DIR}/shared"
+SHARED_DIR = f"{BASE_DIR}/../../../scratch/consistency_shared"
 OOD_DIR = f"{SHARED_DIR}/ood_standard_set"
 
 # os.system(f"mkdir -p {RESULTS_DIR}")

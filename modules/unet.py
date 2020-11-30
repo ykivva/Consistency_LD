@@ -153,7 +153,7 @@ class UNet_LS(TrainableModel):
         assert model_down.downsample==model_up.downsample, "UNet up-model is not match UNet down-model"
         self.blocks = nn.ModuleList([model_down, model_up])
         
-        if path_down or path_up not None:
+        if path_down or path_up is not None:
             self.load_weights(path_down=path_down, path_up=path_up)
 
     def forward(self, x):

@@ -83,11 +83,16 @@ def main(
     realities = [train, val, test, ood]
 
     # GRAPH
-    graph = TaskGraph(tasks=energy_loss.tasks + realities, pretrained=True, finetuned=False,
+    graph = TaskGraph(
+        tasks=energy_loss.tasks + realities,
+        tasks_in=energy_loss.tasks_in,
+        tasks_out=energy_loss.tasks_out,
+        pretrained=True, finetuned=False,
         freeze_list=energy_loss.freeze_list,
         initialize_from_transfer=False,
     )
     graph.compile(torch.optim.Adam, lr=3e-5, weight_decay=2e-6, amsgrad=True)
+    
     
     # LOGGING
     os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -105,7 +110,7 @@ def main(
             val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
             logger.update("loss", val_loss)
-
+            
         for _ in range(0, train_step*4):
             train_loss, _ = energy_loss(graph, realities=[train])
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])

@@ -196,10 +196,6 @@ class DataParallelModel(TrainableModel):
 
     @classmethod
     def load(cls, model=TrainableModel(), weights_file=None):
-        if isinstance(model, UNet_LS) and weights_file!=None:
-            model = cls(model)
-            model.load_weights(path=weights_file)
-            return model
         
         model = cls(model)
         if weights_file is not None:

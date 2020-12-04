@@ -47,10 +47,24 @@ energy_configs = {
             "nr(y^)": [tasks.normal, tasks.depth_zbuffer],
             "nr(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
         },
-        "freeze_list": {
-            "up": [tasks.rgb],
-            "down": [],
+        "tasks_in": { 
+            "edges": [tasks.normal, tasks.depth_zbuffer],
+            "freeze": [],
         },
+        "tasks_out": {
+            "edges": [tasks.rgb],
+            "freeze": [],
+        },
+        "freeze_list": [
+            [tasks.depth_zbuffer, tasks.principal_curvature],
+            [tasks.depth_zbuffer, tasks.sobel_edges],
+            [tasks.depth_zbuffer, tasks.normal],
+            [tasks.depth_zbuffer, tasks.reshading],
+            [tasks.depth_zbuffer, tasks.keypoints3d],
+            [tasks.depth_zbuffer, tasks.keypoints2d],
+            [tasks.depth_zbuffer, tasks.edge_occlusion],
+            [tasks.depth_zbuffer, tasks.imagenet],
+        ],
         "losses": {
             "mae": {
                 ("train", "val"): [
@@ -94,12 +108,13 @@ def coeff_hook(coeff):
 
 class EnergyLoss(object):
 
-    def __init__(self, paths, losses, plots,
+    def __init__(self, paths, losses, plots, tasks_in, tasks_out,
         pretrained=True, finetuned=False, freeze_list=[]
     ):
 
         self.paths, self.losses, self.plots = paths, losses, plots
-        self.freeze_list = [task.name+"_"+direction for direction in freeze_list for task in freeze_list[direction]]
+        self.tasks_in, self.tasks_out = tasks_in, tasks_out
+        self.freeze_list = [str((path[0].name, path[1].name)) for path in freeze_list]
         self.metrics = {}
 
         self.tasks = []
@@ -154,7 +169,7 @@ class EnergyLoss(object):
                         loss_dict[loss_type] += data
                         if loss_types is not None and loss_type in loss_types:
                             losses += data
-
+          
             path_values = self.compute_paths(graph,
                 paths={
                     path: self.paths[path] for path in \
@@ -176,15 +191,25 @@ class EnergyLoss(object):
                     
                     if "direct" in loss_type:
                         with torch.no_grad():
-                            path_loss, _ = output_task.norm(path_values[path1], path_values[path2], batch_mean=reduce, compute_mask=compute_mask, compute_mse=False)
+                            path_loss, _ = output_task.norm(
+                                path_values[path1], path_values[path2],
+                                batch_mean=reduce, compute_mask=compute_mask, compute_mse=False
+                            )
                             loss[loss_type] += path_loss
                     else:
-                        path_loss, _ = output_task.norm(path_values[path1], path_values[path2], batch_mean=reduce, compute_mask=compute_mask, compute_mse=False)
+                        path_loss, _ = output_task.norm(
+                            path_values[path1], path_values[path2],
+                            batch_mean=reduce, compute_mask=compute_mask, compute_mse=False
+                        )
+                        
                         loss[loss_type] += path_loss
                         loss_name = "mae" if "mae" in loss_type else loss_type+"_mae"
                         self.metrics[reality.name][loss_name +" : "+path1 + " -> " + path2] += [path_loss.mean().detach().cpu()]
                         
-                        path_loss, _ = output_task.norm(path_values[path1], path_values[path2], batch_mean=reduce, compute_mask=compute_mask, compute_mse=True)
+                        path_loss, _ = output_task.norm(
+                            path_values[path1], path_values[path2],
+                            batch_mean=reduce, compute_mask=compute_mask, compute_mse=True
+                        )
                         loss_name = "mse" if "mae" in loss_type else loss_type + "_mse"
                         self.metrics[reality.name][loss_name +" : "+path1 + " -> " + path2] += [path_loss.mean().detach().cpu()]
 
@@ -253,7 +278,6 @@ class EnergyLoss(object):
             first = True
             error_passed_ood = 0
             for reality in realities:
-                pdb.set_trace()
                 with torch.no_grad():
                     path_values = self.compute_paths(graph, paths={path: self.paths[path] for path in paths}, reality=realities_map[reality])
 
@@ -264,8 +288,6 @@ class EnergyLoss(object):
                     if path == 'depth': continue
                     X = path_values.get(path, torch.zeros(shape, device=DEVICE))
                     if first: images +=[[]]
-                        
-                    pdb.set_trace()
 
                     if reality is 'ood' and error_passed_ood==0:
                         images[i].append(X.clamp(min=0, max=1).expand(*shape))
@@ -353,7 +375,7 @@ class WinRateEnergyLoss(EnergyLoss):
             percep_mse_gradnorms = dict.fromkeys(chosen_percep_mse_losses, 1.0)
             for loss_name in chosen_percep_mse_losses:
                 loss_dict[loss_name].mean().backward(retain_graph=True)
-                target_weigths = list(graph.edge_out['rgb'].model.parameters()) + list(graph.edge_in[f"{self.target_task}"].model.parameters())
+                target_weights = list(graph.edge_map[f"('rgb', '{self.target_task}')"].model.parameters())
                 percep_mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights])
                 graph.optimizer.zero_grad()
                 graph.zero_grad()

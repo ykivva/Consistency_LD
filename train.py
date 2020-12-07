@@ -126,7 +126,7 @@ def main(
         
         graph.train()
         for _ in range(0, train_step):
-            train_loss, mse_coeff = energy_loss(graph, realities=[train], compute_grad_ratio=True)
+            train_loss, direct_coeff = energy_loss(graph, realities=[train], compute_grad_ratio=True)
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             graph.step(train_loss)
             train.step()

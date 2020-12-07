@@ -1,4 +1,5 @@
 import os, sys, math, random, itertools
+import parse
 from functools import partial
 import numpy as np
 
@@ -38,14 +39,17 @@ def get_energy_loss(
 energy_configs = {
     
     "test_normal": {
+        "target_tasks": [tasks.normal, tasks.depth_zbuffer],
         "paths": {
             "x": [tasks.rgb],
-            "y^": [tasks.normal],
+            "n": [tasks.normal],
             "n(x)": [tasks.rgb, tasks.normal],
             "r(x)": [tasks.rgb, tasks.depth_zbuffer],
-            "depth": [tasks.depth_zbuffer],
-            "nr(y^)": [tasks.normal, tasks.depth_zbuffer],
-            "nr(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+            "r": [tasks.depth_zbuffer],
+            "r(n)": [tasks.normal, tasks.depth_zbuffer],
+            "n(r)": [tasks.depth_zbuffer, tasks.normal],
+            "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+            "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.normal],
         },
         "tasks_in": { 
             "edges": [tasks.normal, tasks.depth_zbuffer],
@@ -64,21 +68,27 @@ energy_configs = {
             [tasks.depth_zbuffer, tasks.keypoints2d],
             [tasks.depth_zbuffer, tasks.edge_occlusion],
             [tasks.depth_zbuffer, tasks.imagenet],
+            [tasks.normal, tasks.depth_zbuffer]
         ],
         "losses": {
-            "mae": {
+            "direct_normal": {
                 ("train", "val"): [
-                    ("n(x)", "y^"),
+                    ("n(x)", "n"),
                 ],
             },
-            "percep_depth_zbuffer": {
+            "percep_normal->depth_zbuffer": {
                 ("train", "val"): [
-                    ("nr(n(x))", "nr(y^)"),
+                    ("r(n(x))", "r(n)"),
+                ],
+            },
+            "percep_depth_zbuffer->normal": {
+                ("train", "val"): [
+                    ("n(r(x))", "n(r)"),
                 ],
             },
             "direct_depth_zbuffer": {
                 ("train", "val"): [
-                    ("r(x)", "depth"),
+                    ("r(x)", "r"),
                 ],
             },
         },
@@ -88,10 +98,12 @@ energy_configs = {
                 realities=("test", "ood"),
                 paths=[
                     "x",
-                    "y^",
+                    "n",
+                    "r(n)",
                     "n(x)",
-                    "nr(n(x))",
-                    "nr(y^)",
+                    "r(x)",
+                    "n(r(x))",
+                    "r(n(x))",
                 ]
             ),
         },
@@ -190,12 +202,11 @@ class EnergyLoss(object):
                     compute_mask = 'imagenet(n(x))' != path1
                     
                     if "direct" in loss_type:
-                        with torch.no_grad():
-                            path_loss, _ = output_task.norm(
-                                path_values[path1], path_values[path2],
-                                batch_mean=reduce, compute_mask=compute_mask, compute_mse=False
-                            )
-                            loss[loss_type] += path_loss
+                        path_loss, _ = output_task.norm(
+                            path_values[path1], path_values[path2],
+                            batch_mean=reduce, compute_mask=compute_mask, compute_mse=False
+                        )
+                        loss[loss_type] += path_loss
                     else:
                         path_loss, _ = output_task.norm(
                             path_values[path1], path_values[path2],
@@ -203,14 +214,14 @@ class EnergyLoss(object):
                         )
                         
                         loss[loss_type] += path_loss
-                        loss_name = "mae" if "mae" in loss_type else loss_type+"_mae"
+                        loss_name = loss_type+"_mae"
                         self.metrics[reality.name][loss_name +" : "+path1 + " -> " + path2] += [path_loss.mean().detach().cpu()]
                         
                         path_loss, _ = output_task.norm(
                             path_values[path1], path_values[path2],
                             batch_mean=reduce, compute_mask=compute_mask, compute_mse=True
                         )
-                        loss_name = "mse" if "mae" in loss_type else loss_type + "_mse"
+                        loss_name = loss_type + "_mse"
                         self.metrics[reality.name][loss_name +" : "+path1 + " -> " + path2] += [path_loss.mean().detach().cpu()]
 
         return loss
@@ -221,10 +232,10 @@ class EnergyLoss(object):
         for loss_type, loss_item in self.losses.items():
             for realities, losses in loss_item.items():
                 for path1, path2 in losses:
-                    loss_name = "mae" if "mae" in loss_type else loss_type+"_mae"
+                    loss_name = loss_type+"_mae"
                     name = loss_name+" : "+path1 + " -> " + path2
                     name_to_realities[name] += list(realities)
-                    loss_name = "mse" if "mae" in loss_type else loss_type + "_mse"
+                    loss_name =  loss_type + "_mse"
                     name = loss_name+" : "+path1 + " -> " + path2
                     name_to_realities[name] += list(realities)
 
@@ -244,10 +255,10 @@ class EnergyLoss(object):
         for loss_type, loss_item in self.losses.items():
             for realities, losses in loss_item.items():
                 for path1, path2 in losses:
-                    loss_name = "mae" if "mae" in loss_type else loss_type+"_mae"
+                    loss_name = loss_type+"_mae"
                     name = loss_name+" : "+path1 + " -> " + path2
                     name_to_realities[name] += list(realities)
-                    loss_name = "mse" if "mae" in loss_type else loss_type + "_mse"
+                    loss_name =  loss_type + "_mse"
                     name = loss_name+" : "+path1 + " -> " + path2
                     name_to_realities[name] += list(realities)
 
@@ -265,7 +276,8 @@ class EnergyLoss(object):
         self.metrics = {}
     
     def plot_paths(self, graph, logger, realities=[], plot_names=None, epochs=0, tr_step=0,prefix=""):
-        error_pairs = {"n(x)": "y^"}
+        error_pairs = {"n(x)": "n", "r(x)": "r"}
+        error_names = [f"{path}->{error_pairs[path]}" for path in error_pairs.keys()]
         realities_map = {reality.name: reality for reality in realities}
         for name, config in (plot_names or self.plots.items()):
             paths = config["paths"]
@@ -283,34 +295,27 @@ class EnergyLoss(object):
 
                 shape = list(path_values[list(path_values.keys())[0]].shape)
                 shape[1] = 3
-
+                error_passed = 0
                 for i, path in enumerate(paths):
-                    if path == 'depth': continue
                     X = path_values.get(path, torch.zeros(shape, device=DEVICE))
                     if first: images +=[[]]
 
-                    if reality is 'ood' and error_passed_ood==0:
-                        images[i].append(X.clamp(min=0, max=1).expand(*shape))
-                    elif reality is 'ood' and error_passed_ood==1:
-                        images[i+1].append(X.clamp(min=0, max=1).expand(*shape))
-                    else:
-                        images[-1].append(X.clamp(min=0, max=1).expand(*shape))
+                    images[i+error_passed].append(X.clamp(min=0, max=1).expand(*shape))
 
                     if path in error_pairs:
 
                         error = True
+                        error_passed += 1
+                        
                         if first:
                             images += [[]]
-
-
-                    if error:
 
                         Y = path_values.get(path, torch.zeros(shape, device=DEVICE))
                         Y_hat = path_values.get(error_pairs[path], torch.zeros(shape, device=DEVICE))
 
                         out_task = self.paths[path][-1]
 
-                        if self.target_task == "reshading": #Use depth mask
+                        if self.paths[error_pairs[path]][0] == tasks.reshading: #Use depth mask
                             Y_mask = path_values.get("depth", torch.zeros(shape, device = DEVICE))
                             mask_task = self.paths["r(x)"][-1]
                             mask = ImageTask.build_mask(Y_mask, val=mask_task.mask_val)
@@ -328,20 +333,16 @@ class EnergyLoss(object):
                         log_errors = torch.tensor(cmap(log_errors.cpu()))[:, 0].permute((0, 3, 1, 2)).float()[:, 0:3]
                         log_errors = log_errors.clamp(min=0, max=1).expand(*shape).to(DEVICE)
                         log_errors[~mask.expand_as(log_errors)] = 0.505
-                        if reality is 'ood':
-                            images[i+1].append(log_errors)
-                            error_passed_ood = 1
-                        else:
-                            images[-1].append(log_errors)
-
-                        error = False
+                        
+                        images[i+error_passed].append(log_errors)
+                        
                 first = False
 
             for i in range(0, len(images)):
                 images[i] = torch.cat(images[i], dim=0)
 
             logger.images_grouped(images,
-                f"{prefix}_{name}_[{', '.join(realities)}]_[{', '.join(paths)}]",
+                f"{prefix}_{name}_[{', '.join(realities)}]_[{', '.join(paths)}]_errors:{error_names}",
                 resize=config["size"]
             )
 
@@ -355,7 +356,7 @@ class WinRateEnergyLoss(EnergyLoss):
         self.k = kwargs.pop('k', 3)
         self.random_select = kwargs.pop('random_select', False)
         self.running_stats = {}
-        self.target_task = kwargs['paths']['y^'][0].name
+        self.target_tasks = kwargs.pop("target_tasks", [])
 
         super().__init__(*args, **kwargs)
 
@@ -365,40 +366,61 @@ class WinRateEnergyLoss(EnergyLoss):
 
     def __call__(self, graph, discriminator=None, realities=[], loss_types=None, compute_grad_ratio=False):
 
-        loss_types = ["mae"] + [("percep_" + loss) for loss in self.chosen_losses] + [("direct_" + loss) for loss in self.chosen_losses]
+        direct_losses = set()
+        all_tasks = set()
+        for chosen_loss in self.chosen_losses:
+            res = parse.parse("{loss1}->{loss2}", chosen_loss)
+            direct_losses.add(f"direct_{res['loss1']}")
+            all_tasks.add(res["loss1"])
+            all_tasks.add(res["loss2"])
+        
+        loss_types = [("percep_" + loss) for loss in self.chosen_losses] + [("direct_" + loss) for loss in all_tasks]
         loss_dict = super().__call__(graph, discriminator=discriminator, realities=realities, loss_types=loss_types, reduce=False)
 
         chosen_percep_mse_losses = [k for k in loss_dict.keys() if 'direct' not in k]
-        percep_mse_coeffs = dict.fromkeys(chosen_percep_mse_losses, 1.0)
+        percep_mse_coeffs = dict.fromkeys(chosen_percep_mse_losses + list(direct_losses), 1.0)
         ########### to compute loss coefficients #############
         if compute_grad_ratio:
             percep_mse_gradnorms = dict.fromkeys(chosen_percep_mse_losses, 1.0)
+            direct_num = {}
             for loss_name in chosen_percep_mse_losses:
+                res = parse.parse("percep_{loss1}->{loss2}", loss_name)
+                direct_num[res["loss1"]] = direct_num.get(res["loss1"], 0)
                 loss_dict[loss_name].mean().backward(retain_graph=True)
-                target_weights = list(graph.edge_map[f"('rgb', '{self.target_task}')"].model.parameters())
+                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
+                direct_num[res["loss1"]] += 1
                 percep_mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights])
                 graph.optimizer.zero_grad()
                 graph.zero_grad()
                 del target_weights
             total_gradnorms = sum(percep_mse_gradnorms.values())
             n_losses = len(chosen_percep_mse_losses)
-            for loss_name, val in percep_mse_coeffs.items():
-                percep_mse_coeffs[loss_name] = (total_gradnorms-percep_mse_gradnorms[loss_name])/((n_losses-1)*total_gradnorms)
-            percep_mse_coeffs["mae"] *= (n_losses-1)
+            for loss_name in chosen_percep_mse_losses:
+                res = parse.parse("percep_{loss1}->{loss2}", loss_name)
+                percep_mse_coeffs[loss_name] = (total_gradnorms-percep_mse_gradnorms[loss_name])/((n_losses-1)*total_gradnorms) if n_losses > 1 else 1
+            for loss_name in direct_losses:
+                res = parse.parse("direct_{loss}", loss_name)
+                percep_mse_coeffs[loss_name] = direct_num[res["loss"]]
         ###########################################
 
         for key in self.chosen_losses:
-            winrate = torch.mean((loss_dict[f"percep_{key}"] > loss_dict[f"direct_{key}"]).float())
+            res = parse.parse("{loss1}->{loss2}", key)
+            winrate = torch.mean((loss_dict[f"percep_{key}"] > loss_dict[f"direct_{res['loss2']}"]).float())
             winrate = winrate.detach().cpu().item()
             if winrate < 1.0:
                 self.running_stats[key] = winrate
             loss_dict[f"percep_{key}"] = loss_dict[f"percep_{key}"].mean() * percep_mse_coeffs[f"percep_{key}"]
-            loss_dict.pop(f"direct_{key}")
+            if f"direct_{res['loss2']}" not in direct_losses:
+                loss_dict.pop(f"direct_{res['loss2']}")
+            
+        direct_coeff = {}
+        for key in direct_losses:
+            loss_dict[key] = loss_dict[key].mean() * percep_mse_coeffs[key]
+            direct_coeff[key] = percep_mse_coeffs[key]
 
         # print (self.running_stats)
-        loss_dict["mae"] = loss_dict["mae"].mean() * percep_mse_coeffs["mae"]
 
-        return loss_dict, percep_mse_coeffs["mae"]
+        return loss_dict, direct_coeff
     
     def logger_update(self, logger):
         super().logger_update(logger)

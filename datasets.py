@@ -92,6 +92,7 @@ def load_test(all_tasks, buildings=["almena", "albertville", "espanola"], sample
         batch_size=sample,
         num_workers=0, shuffle=False, pin_memory=True,
     )
+
     set1 = list(itertools.islice(test_loader1, 1))[0]
     set2 = list(itertools.islice(test_loader2, 1))[0]
     set3 = list(itertools.islice(test_loader3, 1))[0]

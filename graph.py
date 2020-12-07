@@ -76,12 +76,13 @@ class TaskGraph(TrainableModel):
             if isinstance(src_task, RealityTask):
                 transfer = RealityTransfer(src_task, dest_task)
                 self.edge_map[key] = transfer
-            elif src_task.name+"down" in self.edges_out.keys() and dest_task.name+"up" in self.edges_in.keys():
+            elif src_task.name+"_down" in self.edges_out.keys() and dest_task.name+"_up" in self.edges_in.keys():
                 transfer = UNet_Transfer(
                     src_task, dest_task,
-                    block={"down": self.edges_out[src_task.name+"down"], "up":self.edges_in[dest_task.name+"up"]}
+                    block={"down": self.edges_out[src_task.name+"_down"], "up":self.edges_in[dest_task.name+"_up"]}
                 )
                 self.params[key] = transfer
+                
                 try:
                     if not lazy:
                         transfer.to_parallel()

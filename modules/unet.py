@@ -12,6 +12,8 @@ from torch.utils.checkpoint import checkpoint
 from models import TrainableModel
 from utils import *
 
+import pdb
+
 
 class UNet_up_block(nn.Module):
     def __init__(self, prev_channel, input_channel, output_channel, up_sample=True):
@@ -179,8 +181,8 @@ class UNet_LS(TrainableModel):
             torch.save(dict_together, path)
         
         if (not together) or separated:
-            assert path_down==None, "You should specify path to the Unet down-block"
-            assert path_up==None, "You should specify path to the Unet up-block"
+            assert path_down is not None, "You should specify path to the Unet down-block"
+            assert path_up is not None, "You should specify path to the Unet up-block"
             self.blocks[0].save(path_down)
             self.blocks[1].save(path_up)
     

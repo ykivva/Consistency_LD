@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils import *
-from models import TrainableModel, WrapperModel
+from models import TrainableModel, WrapperModel, DataParallelModel
 from datasets import TaskDataset
 from task_configs import get_task, task_map, tasks, RealityTask, ImageTask
 from transfers import UNetTransfer, RealityTransfer, Transfer
@@ -131,10 +131,13 @@ class MultitaskGraph(TrainableModel):
             for key, model in self.edge_map.items():
                 if isinstance(model, RealityTransfer): continue
                 if not isinstance(model.model, TrainableModel): continue
-                if isinstance(model, UnetTransfer):
+                if isinstance(model, UNetTransfer):
                     path_down = f"{weights_dir}/{model.src_task.name}_down.pth"
                     path_up = f"{weights_dir}/{model.dest_task.name}_up.pth"
-                    model.model.save(path_down=path_down, path_up=path_up)
+                    if not isinstance(model.model, DataParallelModel):
+                        model.model.save(path_down=path_down, path_up=path_up)
+                    else:
+                        model.model.parallel_apply.module.save(path_down=path_down, path_up=path_up)
             torch.save(self.optimizer, f"{weights_dir}/optimizer.pth")
     
     def load_weights(self, weights_file=None):

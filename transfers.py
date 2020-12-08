@@ -210,7 +210,7 @@ class UNetTransfer(nn.Module):
 
     def to_parallel(self):
         self.model = self.model.to(DEVICE)
-        if isinstance(self.model, nn.Module) and USE_CUDA:
+        if isinstance(self.model, nn.Module) and USE_CUDA and not isinstance(self.model, DataParallelModel):
             self.model = DataParallelModel(self.model)
         return self.model
 

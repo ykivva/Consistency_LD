@@ -52,7 +52,7 @@ from fire import Fire
 import pdb
 
 def main(
-    loss_config="multiperceptual", mode="winrate", visualize=False,
+    loss_config="multiperceptual", mode="winrate",
     fast=False, batch_size=None,
     subset_size=None, max_epochs=500, dataaug=False, **kwargs,
 ):
@@ -122,7 +122,6 @@ def main(
     for epochs in range(0, max_epochs):
         logger.update("epoch", epochs)
         energy_loss.plot_paths(graph, logger, realities, prefix="")
-        if visualize: return
         
         graph.train()
         for _ in range(0, train_step):

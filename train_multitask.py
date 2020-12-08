@@ -56,7 +56,7 @@ def main(
     logger = VisdomLogger("train", env=JOB_MULTITASK)
     logger.add_hook(lambda logger, data: logger.step(), feature="loss", freq=20)
     logger.add_hook(
-        lambda _, __: graph.save(f"{RESULTS_DIR_MULTITASK}/graph.pth", RESULSTS_DIR_MODELS_MULTITASK),
+        lambda _, __: graph.save(f"{RESULTS_DIR_MULTITASK}/graph.pth", RESULTS_DIR_MODELS_MULTITASK),
         feature="epoch", freq=1
     )
     multitask_loss.logger_hooks(logger)
@@ -80,7 +80,6 @@ def main(
     for epochs in range(0, max_epochs):
         logger.update("epoch", epochs)
         multitask_loss.plot_paths(graph, logger, realities, prefix="")
-        if visualize: return
         
         graph.train()
         for _ in range(0, train_step):

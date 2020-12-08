@@ -91,7 +91,7 @@ class MultitaskLoss(object):
         del path_cache
         return {k: v for k, v in path_values.items() if v is not None}
     
-    def __call__(self, graph, realities=None, loss_types=None, use_l1=False):
+    def __call__(self, graph, realities=None, loss_types=None, use_l1=False, reduce=True):
         loss = {}
         loss_dict = {}
         if loss_types is None:
@@ -112,14 +112,15 @@ class MultitaskLoss(object):
                     },
                 reality=reality)
             
-            if reality_name not in metrics:
+            if reality.name not in self.metrics:
                 self.metrics[reality.name] = defaultdict(list)
             
-            for loss_type, paths in loss_dict:
+            for loss_type, paths in loss_dict.items():
                 if loss_type not in loss:
                     loss[loss_type] = 0
-                for path1,path2 in paths:
+                for path1, path2 in paths:
                     output_task = self.paths[path1][-1]
+                    compute_mask = 'imagenet(n(x))' != path1
                     
                     #COMPUTES MAE LOSS
                     path_loss, _ = output_task.norm(
@@ -129,7 +130,7 @@ class MultitaskLoss(object):
                     )
                     loss[loss_type] += path_loss
                     loss_name = loss_type+"_mae"
-                    self.metrics[reality.name][f"{loss_name} : {paht1}->{paht2}"] += [path_loss.mean().detach().cpu()]
+                    self.metrics[reality.name][f"{loss_name} : {path1}->{path2}"] += [path_loss.mean().detach().cpu()]
                     
                     #COMPUTE MSE LOSS
                     path_loss, _ = output_task.norm(
@@ -139,7 +140,7 @@ class MultitaskLoss(object):
                     )
                     loss[loss_type] += path_loss
                     loss_name = loss_type+"_mse"
-                    self.metrics[reality.name][f"{loss_name} : {paht1}->{paht2}"] += [path_loss.mean().detach().cpu()]
+                    self.metrics[reality.name][f"{loss_name} : {path1}->{path2}"] += [path_loss.mean().detach().cpu()]
         return loss
     
     def logger_hooks(self, logger):

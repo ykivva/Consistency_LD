@@ -26,7 +26,7 @@ MODELS_DIR = f"{BASE_DIR}/models"
 OLD_MODELS_DIR = "/scratch/consistency_shared/models"
 DATA_DIRS = [f"/datasets/taskonomydata"]
 RESULTS_DIR = f"{BASE_DIR}/results/results_{EXPERIMENT}"
-SHARED_DIR = f"{BASE_DIR}/../../../scratch/consistency_shared"
+SHARED_DIR = f"/scratch/consistency_shared"
 OOD_DIR = f"{SHARED_DIR}/ood_standard_set"
 
 # MULTITASK UTILS

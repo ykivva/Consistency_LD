@@ -65,13 +65,13 @@ def main(
     #BASELINE
     with torch.no_grad():
         for _ in range(0, val_step*4):
-            val_loss, _ = multitask_loss(graph, realities=[val], )
+            val_loss = multitask_loss(graph, realities=[val], )
             val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
             logger.update("loss", val_loss)
             
         for _ in range(0, train_step*4):
-            train_loss, _ = multitask_loss(graph, realities=[train])
+            train_loss = multitask_loss(graph, realities=[train])
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             train.step()
             logger.update("loss", train_loss)
@@ -93,7 +93,7 @@ def main(
         graph.eval()
         for _ in range(0, val_step):
             with torch.no_grad():
-                val_loss, _ = multitask_loss(graph, realities=[val])
+                val_loss = multitask_loss(graph, realities=[val])
                 val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
             logger.update("loss", val_loss)

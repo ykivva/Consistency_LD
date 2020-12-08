@@ -29,6 +29,12 @@ RESULTS_DIR = f"{BASE_DIR}/results/results_{EXPERIMENT}"
 SHARED_DIR = f"{BASE_DIR}/../../../scratch/consistency_shared"
 OOD_DIR = f"{SHARED_DIR}/ood_standard_set"
 
+# MULTITASK UTILS
+EXPERIMENT_MULTITASK = open("config/jobinfo_multitask.txt").read().strip()
+RESULTS_DIR_MULTITASK = f"{BASE_DIR}/multitask/results/results_{EXPERIMENT_MULTITASK}"
+RESULTS_DIR_MODELS_MULTITASK = f"{BASE_DIR}/multitask/results/models/"
+JOB_MULTITASK = EXPERIMENT_MULTITASK
+
 # os.system(f"mkdir -p {RESULTS_DIR}")
 
 def both(x, y):

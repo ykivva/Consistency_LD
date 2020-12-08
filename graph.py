@@ -12,8 +12,8 @@ from utils import *
 from models import TrainableModel, WrapperModel
 from datasets import TaskDataset
 from task_configs import get_task, task_map, tasks, RealityTask, ImageTask
-from transfers import UNet_Transfer, RealityTransfer, Transfer
-from model_configs import model_info
+from transfers import UNetTransfer, RealityTransfer, Transfer
+from model_configs import model_types
 
 #from modules.gan_dis import GanDisNet
 
@@ -28,7 +28,7 @@ class TaskGraph(TrainableModel):
         pretrained=True, finetuned=False,
         reality=[], task_filter=[],
         freeze_list=[],
-        lazy=False, initialize_from_transfer=True,
+        lazy=False
     ):
 
         super().__init__()
@@ -38,12 +38,11 @@ class TaskGraph(TrainableModel):
         self.pretrained, self.finetuned = pretrained, finetuned
         self.edges_in, self.edges_out, self.reality = {}, {}, reality
         self.edge_map = {}
-        self.initialize_from_transfer = initialize_from_transfer
         print('Creating graph with tasks:', self.tasks)
         self.params = {}
         
         for task in self.tasks_out.get("edges", None):
-            model_type_down, path_down = model_info.get(task.name, {})["down"]
+            model_type_down, path_down = model_types.get(task.name, {})["down"]
             transfer_down = model_type_down()
             if os.path.exists(path_down):
                 transfer_down.load_weights(path_down)
@@ -56,7 +55,7 @@ class TaskGraph(TrainableModel):
         
         for task in self.tasks_in.get("edges", None):
             
-            model_type_up, path_up = model_info.get(task.name, {})["up"]
+            model_type_up, path_up = model_types.get(task.name, {})["up"]
             transfer_up = model_type_up()
             if os.path.exists(path_up):
                 transfer_up.load_weights(path_up)
@@ -77,7 +76,7 @@ class TaskGraph(TrainableModel):
                 transfer = RealityTransfer(src_task, dest_task)
                 self.edge_map[key] = transfer
             elif src_task.name+"_down" in self.edges_out.keys() and dest_task.name+"_up" in self.edges_in.keys():
-                transfer = UNet_Transfer(
+                transfer = UNetTransfer(
                     src_task, dest_task,
                     block={"down": self.edges_out[src_task.name+"_down"], "up":self.edges_in[dest_task.name+"_up"]}
                 )
@@ -135,7 +134,7 @@ class TaskGraph(TrainableModel):
         if weights_file:
             checkpoint = {
                 key: model.state_dict() for key, model in self.edge_map.items() \
-                if not (isinstance(model, RealityTransfer) or isinstance(model, UNet_Transfer))
+                if not (isinstance(model, RealityTransfer) or isinstance(model, UNetTransfer))
             }
             checkpoint.update({
                 key: model.state_dict() for key, model in self.edges_in.items() \
@@ -154,7 +153,7 @@ class TaskGraph(TrainableModel):
                 if not isinstance(model.model, TrainableModel): continue
                 if isinstance(model, Transfer):
                     model.model.save(f"{weights_dir}/{model.name}.pth")
-                elif isinstance(model, UNet_Transfer):
+                elif isinstance(model, UNetTransfer):
                     path_down = f"{weights_dir}/{model.src_task.name}_down.pth"
                     path_up = f"{weights_dir}/{model.dest_task.name}_up.pth"
                     model.model.save(path_down=path_down, path_up=path_up)

@@ -13,7 +13,7 @@ from torchvision import models
 from utils import *
 from models import TrainableModel, DataParallelModel
 from task_configs import get_task, task_map, Task, RealityTask, ImageTask
-from model_configs import get_model, get_task_edges
+from model_configs import get_model_UNet_LS, get_task_edges
 
 from modules.percep_nets import DenseNet, Dense1by1Net, DenseKernelsNet, DeepNet, BaseNet, WideNet, PyramidNet
 from modules.depth_nets import UNetDepth
@@ -188,11 +188,11 @@ class Transfer(nn.Module):
         return self.name or str(self.src_task) + " -> " + str(self.dest_task)
 
 
-class UNet_Transfer(nn.Module):
+class UNetTransfer(nn.Module):
 
     def __init__(self, src_task, dest_task,
-                 checkpoint=True, name=None,
-                 block={"up":None, "down":None}
+                 block={"up":None, "down":None},
+                 checkpoint=True, name=None
                 ):
         super().__init__()
         if isinstance(src_task, str):
@@ -204,13 +204,13 @@ class UNet_Transfer(nn.Module):
         self.name = name or f"{src_task.name}2{dest_task.name}"
         
         if isinstance(src_task, RealityTask) and isinstance(dest_task, ImageTask): return
-        assert isinstance(block["up"], UNet_LS_up) and isinstance(block["down"], UNet_LS_down), "Can't create UNet_Transfer"
+        assert isinstance(block["up"], UNet_LS_up) and isinstance(block["down"], UNet_LS_down), "Can't create UNetTransfer"
             
         self.model = UNet_LS(model_up=block["up"], model_down=block["down"])
 
     def to_parallel(self):
         self.model = self.model.to(DEVICE)
-        if isinstance(self.model, nn.Module) and USE_CUDA:
+        if isinstance(self.model, nn.Module) and USE_CUDA and not isinstance(self.model, DataParallelModel):
             self.model = DataParallelModel(self.model)
         return self.model
 

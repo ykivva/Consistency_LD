@@ -1,7 +1,7 @@
 from modules.unet import UNet_LS_down, UNet_LS_up, UNet_LS
 from utils import *
 
-model_info = {
+model_types = {
     'normal': {
         'down': (lambda: UNet_LS_down(in_channel=3, downsample=DOWNSAMPLE), f"{MODELS_DIR}/normal_down.pth"),
         'up' : (lambda: UNet_LS_up(out_channel=3, downsample=DOWNSAMPLE), f"{MODELS_DIR}/normal_up.pth"),
@@ -38,10 +38,40 @@ model_info = {
         'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3), f"{MODELS_DIR}/rgb_down.pth"),
         'up': (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=3), f"{MODELS_DIR}/rgb_up.pth"),
     },
+    ('normal', 'principal_curvature'): lambda : Dense1by1Net(),
+    ('normal', 'depth_zbuffer'): lambda : UNetDepth(),
+    ('normal', 'reshading'): lambda : UNet(downsample=5),
+    ('depth_zbuffer', 'normal'): lambda : UNet(downsample=6, in_channels=1, out_channels=3),
+    ('reshading', 'normal'): lambda : UNet(downsample=4, in_channels=3, out_channels=3),
+    ('sobel_edges', 'principal_curvature'): lambda : UNet(downsample=5, in_channels=1, out_channels=3),
+    ('depth_zbuffer', 'principal_curvature'): lambda : UNet(downsample=4, in_channels=1, out_channels=3),
+    ('principal_curvature', 'depth_zbuffer'): lambda : UNet(downsample=6, in_channels=3, out_channels=1),
+    ('rgb', 'normal'): lambda : UNet(downsample=6),
+    ('rgb', 'keypoints2d'): lambda : UNet(downsample=3, out_channels=1),
 }
 
 
 def get_model(src_task, dest_task):
+
+    if isinstance(src_task, str) and isinstance(dest_task, str):
+        src_task, dest_task = get_task(src_task), get_task(dest_task)
+
+    if (src_task.name, dest_task.name) in model_types:
+        return model_types[(src_task.name, dest_task.name)]()
+
+    elif isinstance(src_task, ImageTask) and isinstance(dest_task, ImageTask):
+        return UNet(downsample=5, in_channels=src_task.shape[0], out_channels=dest_task.shape[0])
+
+    elif isinstance(src_task, ImageTask) and isinstance(dest_task, ClassTask):
+        return ResNet(in_channels=src_task.shape[0], out_channels=dest_task.classes)
+
+    elif isinstance(src_task, ImageTask) and isinstance(dest_task, PointInfoTask):
+        return ResNet(out_channels=dest_task.out_channels)
+
+    return None
+
+
+def get_model_UNet_LS(src_task, dest_task):
     src_task_name = src_task
     dest_task_name = dest_task
     

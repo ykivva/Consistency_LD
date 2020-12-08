@@ -167,7 +167,7 @@ class EnergyLoss(object):
 
         return list(set(tasks))
 
-    def __call__(self, graph, discriminator=None, realities=[], loss_types=None, reduce=True, use_l1=False):
+    def __call__(self, graph, realities=[], loss_types=None, reduce=True, use_l1=False):
         loss = {}
         for reality in realities:
             loss_dict = {}
@@ -291,7 +291,11 @@ class EnergyLoss(object):
             error_passed_ood = 0
             for reality in realities:
                 with torch.no_grad():
-                    path_values = self.compute_paths(graph, paths={path: self.paths[path] for path in paths}, reality=realities_map[reality])
+                    path_values = self.compute_paths(
+                        graph,
+                        paths={path: self.paths[path] for path in paths},
+                        reality=realities_map[reality]
+                    )
 
                 shape = list(path_values[list(path_values.keys())[0]].shape)
                 shape[1] = 3
@@ -364,7 +368,7 @@ class WinRateEnergyLoss(EnergyLoss):
         print ("percep losses:",self.percep_losses)
         self.chosen_losses = random.sample(self.percep_losses, self.k)
 
-    def __call__(self, graph, discriminator=None, realities=[], loss_types=None, compute_grad_ratio=False):
+    def __call__(self, graph, realities=[], loss_types=None, compute_grad_ratio=False):
 
         direct_losses = set()
         all_tasks = set()
@@ -375,7 +379,7 @@ class WinRateEnergyLoss(EnergyLoss):
             all_tasks.add(res["loss2"])
         
         loss_types = [("percep_" + loss) for loss in self.chosen_losses] + [("direct_" + loss) for loss in all_tasks]
-        loss_dict = super().__call__(graph, discriminator=discriminator, realities=realities, loss_types=loss_types, reduce=False)
+        loss_dict = super().__call__(graph, realities=realities, loss_types=loss_types, reduce=False)
 
         chosen_percep_mse_losses = [k for k in loss_dict.keys() if 'direct' not in k]
         percep_mse_coeffs = dict.fromkeys(chosen_percep_mse_losses + list(direct_losses), 1.0)

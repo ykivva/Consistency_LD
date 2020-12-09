@@ -196,9 +196,9 @@ class UNetTransfer(nn.Module):
                 ):
         super().__init__()
         if isinstance(src_task, str):
-            src_task = get_task(task)
+            src_task = get_task(src_task)
         if isinstance(dest_task, str):
-            dest_task = get_task(task)
+            dest_task = get_task(dest_task)
 
         self.src_task, self.dest_task, self.checkpoint = src_task, dest_task, checkpoint
         self.name = name or f"{src_task.name}2{dest_task.name}"

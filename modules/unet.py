@@ -61,6 +61,7 @@ class UNet_down_block(nn.Module):
     
 
 class UNet_LS_down(nn.Module):
+    
     def __init__(self, downsample=6, in_channel=3):
         super().__init__()
         
@@ -77,18 +78,16 @@ class UNet_LS_down(nn.Module):
         self.mid_conv2 = nn.Conv2d(bottleneck, bottleneck, 3, padding=1)
         self.bn2 = nn.GroupNorm(8, bottleneck)
         
-        self.xvals = []
-
     def forward(self, x):
         x = self.down1(x)
-        self.xvals = [x]
+        xvals = [x]
         for i in range(0, self.downsample):
             x = self.down_blocks[i](x)
-            self.xvals.append(x)
+            xvals.append(x)
 
         x = self.relu(self.bn1(self.mid_conv1(x)))
         x = self.relu(self.bn2(self.mid_conv2(x)))
-        return x
+        return x, xvals
     
     def save(self, path):
         torch.save(self.state_dict(), path)
@@ -98,6 +97,7 @@ class UNet_LS_down(nn.Module):
 
         
 class UNet_LS_up(nn.Module):
+    
     def __init__(self, downsample=6, out_channel=3):
         super().__init__()
         
@@ -161,8 +161,8 @@ class UNet_LS(TrainableModel):
             self.load_weights(path_down=path_down, path_up=path_up)
 
     def forward(self, x):
-        x = self.blocks[0](x)
-        x = self.blocks[1](self.blocks[0].xvals, x)
+        x, xvals = self.blocks[0](x)
+        x = self.blocks[1](xvals, x)
         return x
     
     def loss(self, pred, target):

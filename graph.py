@@ -49,9 +49,6 @@ class TaskGraph(TrainableModel):
                 
             transfer_down.name = task.name + "_down"
             self.edges_out[transfer_down.name] = transfer_down
-#             if isinstance(transfer_down, nn.Module):
-#                 if task.name not in tasks_out["freeze"]:
-#                     self.params[transfer_down.name] = transfer_down
         
         for task in self.tasks_in.get("edges", None):
             
@@ -62,9 +59,6 @@ class TaskGraph(TrainableModel):
             
             transfer_up.name = task.name + "_up"
             self.edges_in[transfer_up.name] = transfer_up
-#             if isinstance(transfer_up, nn.Module):
-#                 if task.name not in tasks_in["freeze"]:
-#                     self.params[transfer_up.name] = transfer_up
         
         # construct transfer graph
         for src_task, dest_task in itertools.product(self.tasks, self.tasks):

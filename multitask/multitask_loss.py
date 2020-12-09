@@ -16,6 +16,7 @@ from task_configs import tasks, ImageTask
 from utils import *
 
 import IPython
+import pdb
 
 loss_config = {
     "src_task": tasks.rgb,
@@ -130,7 +131,7 @@ class MultitaskLoss(object):
                     )
                     loss[loss_type] += path_loss
                     loss_name = loss_type+"_mae"
-                    self.metrics[reality.name][f"{loss_name} : {path1}->{path2}"] += [path_loss.mean().detach().cpu()]
+                    self.metrics[reality.name][f"{loss_name} : {path1} -> {path2}"] += [path_loss.mean().detach().cpu()]
                     
                     #COMPUTE MSE LOSS
                     path_loss, _ = output_task.norm(
@@ -140,11 +141,10 @@ class MultitaskLoss(object):
                     )
                     loss[loss_type] += path_loss
                     loss_name = loss_type+"_mse"
-                    self.metrics[reality.name][f"{loss_name} : {path1}->{path2}"] += [path_loss.mean().detach().cpu()]
+                    self.metrics[reality.name][f"{loss_name} : {path1} -> {path2}"] += [path_loss.mean().detach().cpu()]
         return loss
     
     def logger_hooks(self, logger):
-        
         name_to_realities = defaultdict(list)
         for loss_type, loss_item in self.losses.items():
             for realities, losses in loss_item.items():

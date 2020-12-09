@@ -75,6 +75,7 @@ def main(
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             train.step()
             logger.update("loss", train_loss)
+    multitask_loss.logger_update(logger)
 
     # TRAINING
     for epochs in range(0, max_epochs):

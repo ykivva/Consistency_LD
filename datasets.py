@@ -78,19 +78,19 @@ def load_test(all_tasks, buildings=["almena", "albertville", "espanola"], sample
     test_loader1 = torch.utils.data.DataLoader(
         TaskDataset(buildings=[buildings[0]], tasks=all_tasks, shuffle=False),
         batch_size=sample,
-        num_workers=0, shuffle=False, pin_memory=True,
+        num_workers=4, shuffle=False, pin_memory=True,
     )
     print(f"number of images in {buildings[1]}:")
     test_loader2 = torch.utils.data.DataLoader(
         TaskDataset(buildings=[buildings[1]], tasks=all_tasks, shuffle=False),
         batch_size=sample,
-        num_workers=0, shuffle=False, pin_memory=True,
+        num_workers=4, shuffle=False, pin_memory=True,
     )
     print(f"number of images in {buildings[2]}:")
     test_loader3 = torch.utils.data.DataLoader(
         TaskDataset(buildings=[buildings[2]], tasks=all_tasks, shuffle=False),
         batch_size=sample,
-        num_workers=0, shuffle=False, pin_memory=True,
+        num_workers=4, shuffle=False, pin_memory=True,
     )
 
     set1 = list(itertools.islice(test_loader1, 1))[0]

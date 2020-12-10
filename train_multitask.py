@@ -62,7 +62,7 @@ def main(
     multitask_loss.logger_hooks(logger)
     multitask_loss.plot_paths(graph, logger, realities, prefix="start")
     
-    #BASELINE
+    # BASELINE
     with torch.no_grad():
         for _ in range(0, val_step*4):
             val_loss = multitask_loss(graph, realities=[val], )

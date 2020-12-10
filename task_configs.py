@@ -20,6 +20,7 @@ import IPython
 from PIL import ImageFilter
 from skimage.filters import gaussian
 
+import pdb
 
 class GaussianBulr(object):
     def __init__(self, radius):
@@ -111,7 +112,7 @@ class RealityTask(Task):
         self.dataset, self.shuffle, self.batch_size = dataset, shuffle, batch_size
         loader = torch.utils.data.DataLoader(
             self.dataset, batch_size=self.batch_size,
-            num_workers=0, shuffle=self.shuffle, pin_memory=True
+            num_workers=32, shuffle=self.shuffle, pin_memory=True
         )
         self.generator = cycle(loader)
         self.step()
@@ -143,7 +144,7 @@ class RealityTask(Task):
     def reload(self):
         loader = torch.utils.data.DataLoader(
             self.dataset, batch_size=self.batch_size,
-            num_workers=0, shuffle=self.shuffle, pin_memory=True
+            num_workers=32, shuffle=self.shuffle, pin_memory=True
         )
         self.generator = cycle(loader)
 

@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils import *
-from models import TrainableModel, WrapperModel
+from models import TrainableModel, WrapperModel, DataParallelModel
 from datasets import TaskDataset
 from task_configs import get_task, task_map, tasks, RealityTask, ImageTask
 from transfers import UNetTransfer, RealityTransfer, Transfer
@@ -26,17 +26,17 @@ class TaskGraph(TrainableModel):
     def __init__(
         self, tasks=tasks, tasks_in={}, tasks_out={},
         pretrained=True, finetuned=False,
-        reality=[], task_filter=[],
-        freeze_list=[],
-        lazy=False
+        freeze_list=[], direct_edges={}, lazy=False
     ):
 
         super().__init__()
-        self.tasks = list(set(tasks) - set(task_filter))
+        self.tasks = tasks
         self.tasks += [task.base for task in self.tasks if hasattr(task, "base")]
         self.tasks_in, self.tasks_out = tasks_in, tasks_out
         self.pretrained, self.finetuned = pretrained, finetuned
-        self.edges_in, self.edges_out, self.reality = {}, {}, reality
+        self.edges_in, self.edges_out, = {}, {}
+        self.direct_edges = direct_edges
+        self.freeze_list = freeze_list
         self.edge_map = {}
         print('Creating graph with tasks:', self.tasks)
         self.params = {}
@@ -49,9 +49,11 @@ class TaskGraph(TrainableModel):
                 
             transfer_down.name = task.name + "_down"
             self.edges_out[transfer_down.name] = transfer_down
+            if task.name in self.freeze_list:
+                for p in transfer_down.parameters():
+                    p.requires_grad = False
         
         for task in self.tasks_in.get("edges", None):
-            
             model_type_up, path_up = model_types.get(task.name, {})["up"]
             transfer_up = model_type_up()
             if os.path.exists(path_up):
@@ -59,6 +61,10 @@ class TaskGraph(TrainableModel):
             
             transfer_up.name = task.name + "_up"
             self.edges_in[transfer_up.name] = transfer_up
+            
+            if task.name in self.freeze_list:
+                for p in transfer_up.parameters():
+                    p.requires_grad = False
         
         # construct transfer graph
         for src_task, dest_task in itertools.product(self.tasks, self.tasks):
@@ -69,20 +75,7 @@ class TaskGraph(TrainableModel):
             if isinstance(src_task, RealityTask):
                 transfer = RealityTransfer(src_task, dest_task)
                 self.edge_map[key] = transfer
-            elif src_task.name+"_down" in self.edges_out.keys() and dest_task.name+"_up" in self.edges_in.keys():
-                transfer = UNetTransfer(
-                    src_task, dest_task,
-                    block={"down": self.edges_out[src_task.name+"_down"], "up":self.edges_in[dest_task.name+"_up"]}
-                )
-                self.params[key] = transfer
-                
-                try:
-                    if not lazy:
-                        transfer.to_parallel()
-                except Exception as e:
-                    print(e)
-                    IPython.embed()
-            else:
+            elif key in self.direct_edges:
                 transfer = Transfer(src_task, dest_task, pretrained=pretrained, finetuned=finetuned)
                 
                 if transfer.model_type is None:
@@ -98,6 +91,24 @@ class TaskGraph(TrainableModel):
                 except Exception as e:
                     print(e)
                     IPython.embed()
+                
+                if key in self.freeze_list:
+                    for p in transfer.parameters():
+                        p.requires_grad = False
+            elif src_task.name+"_down" in self.edges_out.keys() and dest_task.name+"_up" in self.edges_in.keys():
+                transfer = UNetTransfer(
+                    src_task, dest_task,
+                    block={"down": self.edges_out[src_task.name+"_down"], "up":self.edges_in[dest_task.name+"_up"]}
+                )
+                self.params[key] = transfer
+                
+                try:
+                    if not lazy:
+                        transfer.to_parallel()
+                except Exception as e:
+                    print(e)
+                    IPython.embed()
+            else: continue
             self.edge_map[key] = transfer
         self.params = nn.ModuleDict(self.params)
     
@@ -105,8 +116,8 @@ class TaskGraph(TrainableModel):
         key = str((src_task.name, dest_task.name))
         return self.edge_map[key]            
 
-    def sample_path(self, path, reality=None, use_cache=False, cache={}):
-        path = [reality or self.reality[0]] + path
+    def sample_path(self, path, reality, use_cache=False, cache={}):
+        path = [reality] + path
         x = None
         for i in range(1, len(path)):
             try:
@@ -150,7 +161,10 @@ class TaskGraph(TrainableModel):
                 elif isinstance(model, UNetTransfer):
                     path_down = f"{weights_dir}/{model.src_task.name}_down.pth"
                     path_up = f"{weights_dir}/{model.dest_task.name}_up.pth"
-                    model.model.save(path_down=path_down, path_up=path_up)
+                    if not isinstance(model.model, DataParallelModel):
+                        model.model.save(path_down=path_down, path_up=path_up)
+                    else:
+                        model.model.parallel_apply.module.save(path_down=path_down, path_up=path_up)
             torch.save(self.optimizer, f"{weights_dir}/optimizer.pth")
     
     def load_weights(self, weights_file=None):

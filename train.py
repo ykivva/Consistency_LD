@@ -34,7 +34,7 @@
 
 
   Usage:
-    python -m train multiperceptual_depth --batch-size 32 --k 8 --max-epochs 100
+    python -m train perceptual_normal --batch-size 32 --k 8 --max-epochs 100
 '''
 
 import torch
@@ -52,7 +52,7 @@ from fire import Fire
 import pdb
 
 def main(
-    loss_config="multiperceptual", mode="winrate",
+    loss_config="", mode="winrate",
     fast=False, batch_size=None,
     subset_size=None, max_epochs=500, dataaug=False, **kwargs,
 ):
@@ -89,16 +89,17 @@ def main(
         tasks_out=energy_loss.tasks_out,
         pretrained=True, finetuned=False,
         freeze_list=energy_loss.freeze_list,
-        initialize_from_transfer=False,
+        direct_edges=energy_loss.direct_edges,
     )
     graph.compile(torch.optim.Adam, lr=3e-5, weight_decay=2e-6, amsgrad=True)
     
     
     # LOGGING
     os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(RESULTS_DIR_MODELS, exist_ok=True)
     logger = VisdomLogger("train", env=JOB)
     logger.add_hook(lambda logger, data: logger.step(), feature="loss", freq=20)
-    logger.add_hook(lambda _, __: graph.save(f"{RESULTS_DIR}/graph.pth"), feature="epoch", freq=1)
+    logger.add_hook(lambda _, __: graph.save(f"{RESULTS_DIR}/graph.pth", RESULTS_DIR_MODELS), feature="epoch", freq=1)
     energy_loss.logger_hooks(logger)
     energy_loss.plot_paths(graph, logger, realities, prefix="start")
 

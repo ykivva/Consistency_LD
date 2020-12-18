@@ -139,7 +139,6 @@ class BaselineLoss(object):
                         batch_mean=reduce, compute_mask=compute_mask,
                         compute_mse=True
                     )
-                    loss[loss_type] += path_loss
                     loss_name = loss_type+"_mse"
                     self.metrics[reality.name][f"{loss_name} : {path1} -> {path2}"] += [path_loss.mean().detach().cpu()]
         return loss

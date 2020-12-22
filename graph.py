@@ -118,9 +118,9 @@ class TaskGraph(TrainableModel):
     
     def edge(self, src_task, dest_task):
         if isinstance(src_task, ImageTask) and dest_task==task_configs.tasks.LS:
-            return self.edges_out[f"{src_task.name}_down"]
+            return nn.DataParallel(self.edges_out[f"{src_task.name}_down"])
         elif src_task==task_configs.tasks.LS and isinstance(dest_task, ImageTask):
-            return self.edges_in[f"{dest_task.name}_up"]
+            return nn.DataParallel(self.edges_in[f"{dest_task.name}_up"])
         key = str((src_task.name, dest_task.name))
         return self.edge_map[key]            
 
@@ -128,6 +128,7 @@ class TaskGraph(TrainableModel):
         path = [reality] + path
         x = None
         for i in range(1, len(path)):
+            if path[i]==task_configs.tasks.LS: continue
             try:
                 x = cache.get(tuple(path[0:i+1]),
                     self.edge(path[i-1], path[i])(x)
@@ -139,7 +140,9 @@ class TaskGraph(TrainableModel):
                 IPython.embed()
 
             if use_cache: cache[tuple(path[0:(i+1)])] = x
-        if path[-1]==task_configs.tasks.LS: return x[1]
+        if path[-1]==task_configs.tasks.LS:
+            x = self.edge(path[-2], path[-1])(x)
+            return x[1]
         return x
 
     def save(self, weights_file=None, weights_dir=None):

@@ -40,16 +40,16 @@ energy_configs = {
         "paths": {
             "x": [tasks.rgb],
             "n": [tasks.normal],
-            "n(x)": [tasks.rgb, tasks.LS, tasks.normal],
+            "n(x)": [tasks.rgb, tasks.normal],
             "r": [tasks.depth_zbuffer],
-            "r(x)": [tasks.rgb, tasks.LS, tasks.depth_zbuffer],
-            "r(n)": [tasks.normal, tasks.LS, tasks.depth_zbuffer],
-            "n(r)": [tasks.depth_zbuffer, tasks.LS, tasks.normal],
-            "r(n(x))": [tasks.rgb, tasks.LS, tasks.normal, tasks.LS, tasks.depth_zbuffer],
-            "n(r(x))": [tasks.rgb, tasks.LS, tasks.depth_zbuffer, tasks.LS, tasks.normal],
+            "r(x)": [tasks.rgb, tasks.depth_zbuffer],
+            "r(n)": [tasks.normal, tasks.depth_zbuffer],
+            "n(r)": [tasks.depth_zbuffer, tasks.normal],
+            "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+            "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.normal],
             "_(x)": [tasks.rgb, tasks.LS],
-            "_(r(x))": [tasks.rgb, tasks.LS, tasks.depth_zbuffer, tasks.LS],
-            "_(n(x))": [tasks.rgb, tasks.LS, tasks.normal, tasks.LS]
+            "_(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.LS],
+            "_(n(x))": [tasks.rgb, tasks.normal, tasks.LS]
             
         },
         "tasks_in": { 
@@ -444,7 +444,8 @@ class LSEnergyLoss(EnergyLoss):
             direct_num = {}
             
             #COMPUTE GRADIENT NORMS FOR ALL LOSSES
-            for loss_name in chosen_losses:
+            pdb.set_trace()
+            for loss_name in self.chosen_losses:
                 res = parse.parse("{loss1}->{loss2}", loss_name)
                 direct_num[f"direct_{res['loss1']}"] = direct_num.get(f"direct_{res['loss1']}", 0)
                 target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())

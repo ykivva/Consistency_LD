@@ -24,7 +24,7 @@ model_types = {
     },
     'depth_zbuffer': {
         'down': (lambda: UNet_LS_down(in_channel=1, downsample=DOWNSAMPLE), f"{MODELS_DIR}/depth_zbuffer_down.pth"),
-        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1), f"{MODELS_DIR}/depth__zbuffer_up.pth"),
+        'up' : (lambda: UNet_LS_up(downsample=DOWNSAMPLE, out_channel=1), f"{MODELS_DIR}/depth_zbuffer_up.pth"),
     },
     'principal_curvuture': {
         'down': (lambda: UNet_LS_down(downsample=DOWNSAMPLE, in_channel=3), f"{MODELS_DIR}/principal_curvature_down.pth"),

@@ -8,10 +8,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import task_configs
+
 from utils import *
 from models import TrainableModel, WrapperModel, DataParallelModel
 from datasets import TaskDataset
-from task_configs import get_task, task_map, tasks, RealityTask, ImageTask, Task
+from task_configs import get_task, task_map, RealityTask, ImageTask, Task
 from transfers import UNetTransfer, RealityTransfer, Transfer
 from model_configs import model_types
 
@@ -24,7 +26,7 @@ class TaskGraph(TrainableModel):
     from directories."""
 
     def __init__(
-        self, tasks=tasks, tasks_in={}, tasks_out={},
+        self, tasks, tasks_in={}, tasks_out={},
         pretrained=True, finetuned=False,
         freeze_list=[], direct_edges={}, lazy=False
     ):
@@ -72,6 +74,8 @@ class TaskGraph(TrainableModel):
             transfer = None
             if src_task==dest_task: continue
             if isinstance(dest_task, RealityTask): continue
+            if src_task==task_configs.tasks.LS or dest_task==task_configs.tasks.LS:
+                continue
             if isinstance(src_task, RealityTask):
                 transfer = RealityTransfer(src_task, dest_task)
                 self.edge_map[key] = transfer
@@ -113,9 +117,9 @@ class TaskGraph(TrainableModel):
         self.params = nn.ModuleDict(self.params)
     
     def edge(self, src_task, dest_task):
-        if isinstance(src_task, ImageTask) and dest_task==tasks.LS:
+        if isinstance(src_task, ImageTask) and dest_task==task_configs.tasks.LS:
             return self.edges_out[f"{src_task.name}_down"]
-        elif src_task==tasks.LS and isinstance(dest_task, ImageTask):
+        elif src_task==task_configs.tasks.LS and isinstance(dest_task, ImageTask):
             return self.edges_in[f"{dest_task.name}_up"]
         key = str((src_task.name, dest_task.name))
         return self.edge_map[key]            
@@ -135,7 +139,7 @@ class TaskGraph(TrainableModel):
                 IPython.embed()
 
             if use_cache: cache[tuple(path[0:(i+1)])] = x
-        if path[-1]==tasks.LS: return x[1]
+        if path[-1]==task_configs.tasks.LS: return x[1]
         return x
 
     def save(self, weights_file=None, weights_dir=None):

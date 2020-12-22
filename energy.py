@@ -30,10 +30,87 @@ def get_energy_loss(
         mode = {
             "standard": EnergyLoss,
             "winrate": WinRateEnergyLoss,
+            "latent_space": LSEnergyLoss,
         }[mode]
     return mode(**energy_configs[config], **kwargs)
 
 energy_configs = {
+    
+    "perceptual+LS:x->n|r": {
+        "paths": {
+            "x": [tasks.rgb],
+            "n": [tasks.normal],
+            "n(x)": [tasks.rgb, tasks.LS, tasks.normal],
+            "r": [tasks.depth_zbuffer],
+            "r(x)": [tasks.rgb, tasks.LS, tasks.depth_zbuffer],
+            "r(n)": [tasks.normal, tasks.LS, tasks.depth_zbuffer],
+            "n(r)": [tasks.depth_zbuffer, tasks.LS, tasks.normal],
+            "r(n(x))": [tasks.rgb, tasks.LS, tasks.normal, tasks.LS, tasks.depth_zbuffer],
+            "n(r(x))": [tasks.rgb, tasks.LS, tasks.depth_zbuffer, tasks.LS, tasks.normal],
+            "_(x)": [tasks.rgb, tasks.LS],
+            "_(r(x))": [tasks.rgb, tasks.LS, tasks.depth_zbuffer, tasks.LS],
+            "_(n(x))": [tasks.rgb, tasks.LS, tasks.normal, tasks.LS]
+            
+        },
+        "tasks_in": { 
+            "edges": [tasks.normal, tasks.depth_zbuffer],
+            "freeze": [],
+        },
+        "tasks_out": {
+            "edges": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+            "freeze": [],
+        },
+        "direct_edges": [
+        ],
+        "freeze_list": [
+        ],
+        "losses": {
+            "direct_normal": {
+                ("train", "val"): [
+                    ("n(x)", "n"),
+                ],
+            },
+            "percep_normal->depth_zbuffer": {
+                ("train", "val"): [
+                    ("r(n(x))", "r(n)"),
+                ],
+            },
+            "LS_percep_normal->depth_zbuffer": {
+                ("train", "val"): [
+                    ("_(n(x))", "_(x)")
+                ]
+            },
+            "direct_depth_zbuffer": {
+                ("train", "val"): [
+                    ("r(x)", "n"),
+                ],
+            },
+            "percep_depth_zbuffer->normal": {
+                ("train", "val"): [
+                    ("n(r(x))", "n(r)"),
+                ],
+            },
+            "LS_percep_depth_zbuffer->normal": {
+                ("train", "val"): [
+                    ("_(r(x))", "_(x)")
+                ]
+            },
+        },
+        "plots": {
+            "": dict(
+                size=256,
+                realities=("test", "ood"),
+                paths=[
+                    "x",
+                    "n",
+                    "r",
+                    "n(x)",
+                    "r(n)",
+                    "r(n(x))",
+                ]
+            ),
+        },
+    },
     
     "perceptual_normal": {
         "paths": {
@@ -79,8 +156,11 @@ energy_configs = {
                     "n",
                     "r",
                     "n(x)",
+                    "r(x)",
                     "r(n)",
+                    "n(r)",
                     "r(n(x))",
+                    "n(r(x))",
                 ]
             ),
         },
@@ -177,13 +257,14 @@ class EnergyLoss(object):
                     loss[loss_type] = 0
                 for path1, path2 in paths:
                     output_task = self.paths[path1][-1]
+                        
                     compute_mask = 'imagenet(n(x))' != path1
                     
                     #COMPUTES MAE LOSS
                     path_loss, _ = output_task.norm(
                         path_values[path1], path_values[path2],
-                        batch_mean=reduce, compute_mask=compute_mask,
-                        compute_mse=False
+                        batch_mean=reduce, compute_mse=False,
+                        compute_mask=compute_mask
                     )
                     loss[loss_type] += path_loss
                     loss_name = loss_type+"_mae"
@@ -250,7 +331,7 @@ class EnergyLoss(object):
         self.metrics = {}
     
     def plot_paths(self, graph, logger, realities=[], plot_names=None, epochs=0, tr_step=0,prefix=""):
-        error_pairs = {"n(x)": "n", "r(n(x))": "r(n)"}
+        error_pairs = {"n(x)": "n", "r(n(x))": "r(n)", "r(x)": "r", "n(r(x))": "n(r)"}
         error_names = [f"{path}->{error_pairs[path]}" for path in error_pairs.keys()]
         realities_map = {reality.name: reality for reality in realities}
         for name, config in (plot_names or self.plots.items()):
@@ -326,7 +407,117 @@ class EnergyLoss(object):
 
     def __repr__(self):
         return str(self.losses)
+    
+    
+class LSEnergyLoss(EnergyLoss):
 
+    def __init__(self, *args, **kwargs):
+        self.k = kwargs.pop('k', 2)
+
+        super().__init__(*args, **kwargs)
+
+        self.percep_losses = [key[7:] for key in self.losses.keys() if key[0:7] == "percep_"]
+        print ("percep losses:",self.percep_losses)
+        self.chosen_losses = random.sample(self.percep_losses, self.k)
+
+    def __call__(self, graph, realities=[], loss_types=None, compute_grad_ratio=False, backward=True):
+
+        direct_losses = set()
+        ls_percep_losses = set()
+        grad_sum_before = 0
+        for chosen_loss in self.chosen_losses:
+            res = parse.parse("{loss1}->{loss2}", chosen_loss)
+            direct_losses.add(f"direct_{res['loss1']}")
+            ls_percep_losses.add(f"LS_percep_{res['loss1']}->{res['loss2']}")
+        
+        loss_types = [("percep_" + loss) for loss in self.chosen_losses] + list(direct_losses) + list(ls_percep_losses)
+        loss_dict = super().__call__(graph, realities=realities, loss_types=loss_types, reduce=False)
+
+        grad_mse_coeffs = dict.fromkeys(loss_dict.keys(), 1.0)
+        ########### to compute loss coefficients #############
+        if compute_grad_ratio:
+            mse_gradnorms = dict.fromkeys(loss_dict.keys(), 1.0)
+            total_gradnorms = dict.fromkeys(direct_losses, 0)
+            direct_num = {}
+            
+            #COMPUTE GRADIENT NORMS FOR ALL LOSSES
+            for loss_name in chosen_losses:
+                res = parse.parse("{loss1}->{loss2}", loss_name)
+                direct_num[f"direct_{res['loss1']}"] = direct_num.get(f"direct_{res['loss1']}", 0)
+                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
+                
+                if backward:
+                    grad_sum_before = mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights])
+                
+                loss_dict[loss_name].mean().backward(retain_graph=True)
+                direct_num[f"direct_{res['loss1']}"] += 1
+                mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights]) - grad_sum_before
+                
+                if not backward:
+                    graph.zero_grad()
+                    graph.optimizer.zero_grad()
+                del target_weights
+            
+            for loss_name in ls_percep_losses:
+                res = parse.parse("LS_percep_{loss1}->{loss2}", loss_name)
+                direct_num[f"direct_{res['loss1']}"] = direct_num.get(f"direct_{res['loss1']}", 0)
+                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
+                
+                if backward:
+                    grad_sum_before = mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights])
+                
+                loss_dict[loss_name].mean().backward(retain_graph=True)
+                direct_num[f"direct_{res['loss1']}"] += 1
+                mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights]) - grad_sum_before
+                
+                if not backward:
+                    graph.zero_grad()
+                    graph.optimizer.zero_grad()
+                del target_weights
+            
+            for loss_name in direct_losses:
+                res = parse.parse("direct_{loss1}", loss_name)
+                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
+                
+                if backward:
+                    grad_sum_before = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights])
+                    
+                loss_dict[loss_name].mean().backward(retain_graph=True)
+                mse_gradnorms[loss_name] = sum([l.grad.abs().sum().item() for l in target_weights])/sum([l.numel() for l in target_weights]) - grad_sum_before
+                
+                if backward:
+                    graph.optimizer.zero_grad()
+                    graph.zero_grad()
+                del target_weights
+            
+            for loss_name in loss_dict.keys():
+                if "percep" in loss_name:
+                    res = parse.parse("{_}percep_{loss1}->{loss2}", loss_name)
+                    total_gradnorms[f"direct_{res['loss1']}"] += mse_gradnorms[loss_name]
+                else:
+                    total_gradnorms[loss_name] += mse_gradnorms[loss_name]
+            
+            for loss_name in loss_dict.keys():
+                if "percep" in loss_name                              :
+                    res = parse.parse("{_}percep_{loss1}->{loss2}", loss_name)
+                    grad_mse_coeffs[loss_name] = total_gradnorms[f"direct_{res['loss1']}"] - mse_gradnorms[loss_name]
+                    grad_mse_coeffs[loss_name] /= direct_num[f"direct_{res['loss1']}"] * total_gradnorms[f"direct_{res['loss1']}"]
+                else:
+                    grad_mse_coeffs[loss_name] = total_gradnorms[loss_name] - mse_gradnorms[loss_name]
+                    grad_mse_coeffs[loss_name] /= direct_num[loss_name] * total_gradnorms[loss_name]
+        
+        ###########################################
+        
+        for loss_name in loss_dict.keys():
+            loss_dict[loss_name] = loss_dict[loss_name].mean() * grad_mse_coeffs[loss_name]
+
+        return loss_dict, grad_mse_coeffs
+    
+    def logger_update(self, logger):
+        super().logger_update(logger)
+
+        logger.text (f"Chosen losses: {self.chosen_losses}")
+    
 
 class WinRateEnergyLoss(EnergyLoss):
 

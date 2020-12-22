@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from utils import *
 from models import TrainableModel, WrapperModel, DataParallelModel
 from datasets import TaskDataset
-from task_configs import get_task, task_map, tasks, RealityTask, ImageTask
+from task_configs import get_task, task_map, tasks, RealityTask, ImageTask, Task
 from transfers import UNetTransfer, RealityTransfer, Transfer
 from model_configs import model_types
 
@@ -113,6 +113,10 @@ class TaskGraph(TrainableModel):
         self.params = nn.ModuleDict(self.params)
     
     def edge(self, src_task, dest_task):
+        if isinstance(src_task, ImageTask) and dest_task==tasks.LS:
+            return self.edges_out[f"{src_task.name}_down"]
+        elif src_task==tasks.LS and isinstance(dest_task, ImageTask):
+            return self.edges_in[f"{dest_task.name}_up"]
         key = str((src_task.name, dest_task.name))
         return self.edge_map[key]            
 
@@ -131,6 +135,7 @@ class TaskGraph(TrainableModel):
                 IPython.embed()
 
             if use_cache: cache[tuple(path[0:(i+1)])] = x
+        if path[-1]==tasks.LS: return x[1]
         return x
 
     def save(self, weights_file=None, weights_dir=None):

@@ -64,7 +64,7 @@ class Task(object):
         self.variance = Task.variances.get(name, 1.0)
         self.kind = name
 
-    def norm(self, pred, target, batch_mean=True, compute_mse=True):
+    def norm(self, pred, target, batch_mean=True, compute_mse=True, **kwargs):
         if batch_mean:
             loss = ((pred - target)**2).mean() if compute_mse else ((pred - target).abs()).mean()
         else:
@@ -73,7 +73,7 @@ class Task(object):
 
         return loss, (loss.mean().detach(),)
 
-    def __call__(self, size=256):
+    def __call__(self):
         task = copy.deepcopy(self)
         return task
 
@@ -98,6 +98,7 @@ class Task(object):
 Abstract task type definitions.
 Includes Task, ImageTask, ClassTask, PointInfoTask, and SegmentationTask.
 """
+NUM_WORKERS = 64
 
 class RealityTask(Task):
     """ General task output space"""
@@ -112,7 +113,7 @@ class RealityTask(Task):
         self.dataset, self.shuffle, self.batch_size = dataset, shuffle, batch_size
         loader = torch.utils.data.DataLoader(
             self.dataset, batch_size=self.batch_size,
-            num_workers=32, shuffle=self.shuffle, pin_memory=True
+            num_workers=NUM_WORKERS, shuffle=self.shuffle, pin_memory=True
         )
         self.generator = cycle(loader)
         self.step()
@@ -144,9 +145,10 @@ class RealityTask(Task):
     def reload(self):
         loader = torch.utils.data.DataLoader(
             self.dataset, batch_size=self.batch_size,
-            num_workers=32, shuffle=self.shuffle, pin_memory=True
+            num_workers=NUM_WORKERS, shuffle=self.shuffle, pin_memory=True
         )
         self.generator = cycle(loader)
+        
 
 class ImageTask(Task):
     """ Output space for image-style tasks """
@@ -254,6 +256,7 @@ def get_task(task_name):
 
 
 tasks = [
+    Task('LS'),
     ImageTask('rgb'),
     ImageTask('imagenet', mask_val=0.0),
     ImageTask('normal', mask_val=0.502),

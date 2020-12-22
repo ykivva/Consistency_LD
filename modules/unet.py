@@ -87,7 +87,7 @@ class UNet_LS_down(nn.Module):
 
         x = self.relu(self.bn1(self.mid_conv1(x)))
         x = self.relu(self.bn2(self.mid_conv2(x)))
-        return x, xvals
+        return [xvals, x]
     
     def save(self, path):
         torch.save(self.state_dict(), path)
@@ -116,7 +116,9 @@ class UNet_LS_up(nn.Module):
         self.last_conv2 = nn.Conv2d(16, out_channel, 1, padding=0)
         self.relu = nn.ReLU()
     
-    def forward(self, xvals, x):
+    def forward(self, x):
+        xvals = x[0]
+        x = x[1]
         x = self.relu(self.bn3(self.mid_conv3(x)))
 
         for i in range(0, self.downsample)[::-1]:
@@ -161,8 +163,8 @@ class UNet_LS(TrainableModel):
             self.load_weights(path_down=path_down, path_up=path_up)
 
     def forward(self, x):
-        x, xvals = self.blocks[0](x)
-        x = self.blocks[1](xvals, x)
+        x = self.blocks[0](x)
+        x = self.blocks[1](x)
         return x
     
     def loss(self, pred, target):

@@ -98,7 +98,7 @@ class Task(object):
 Abstract task type definitions.
 Includes Task, ImageTask, ClassTask, PointInfoTask, and SegmentationTask.
 """
-NUM_WORKERS = 64
+NUM_WORKERS = 32
 
 class RealityTask(Task):
     """ General task output space"""

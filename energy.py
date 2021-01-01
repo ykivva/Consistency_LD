@@ -423,13 +423,15 @@ class LSEnergyLoss(EnergyLoss):
         print ("percep losses:",self.percep_losses)
         self.chosen_losses = random.sample(self.percep_losses, self.k)
 
-    def __call__(self, graph, realities=[], loss_types=None, compute_grad_ratio=False, backward=True):
+    def __call__(self, graph, realities=[], loss_types=None, compute_grad_ratio=False, backward=False):
 
         direct_losses = set()
         ls_percep_losses = set()
+        percep_losses = set()
         grad_sum_before = 0
         for chosen_loss in self.chosen_losses:
             res = parse.parse("{loss1}->{loss2}", chosen_loss)
+            percep_losses.add("percep_"+chosen_loss)
             direct_losses.add(f"direct_{res['loss1']}")
             ls_percep_losses.add(f"LS_percep_{res['loss1']}->{res['loss2']}")
         
@@ -444,9 +446,8 @@ class LSEnergyLoss(EnergyLoss):
             direct_num = {}
             
             #COMPUTE GRADIENT NORMS FOR ALL LOSSES
-            pdb.set_trace()
-            for loss_name in self.chosen_losses:
-                res = parse.parse("{loss1}->{loss2}", loss_name)
+            for loss_name in percep_losses:
+                res = parse.parse("percep_{loss1}->{loss2}", loss_name)
                 direct_num[f"direct_{res['loss1']}"] = direct_num.get(f"direct_{res['loss1']}", 0)
                 target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
                 
@@ -496,14 +497,14 @@ class LSEnergyLoss(EnergyLoss):
             
             for loss_name in loss_dict.keys():
                 if "percep" in loss_name:
-                    res = parse.parse("{_}percep_{loss1}->{loss2}", loss_name)
+                    res = parse.parse("{_}ercep_{loss1}->{loss2}", loss_name)
                     total_gradnorms[f"direct_{res['loss1']}"] += mse_gradnorms[loss_name]
                 else:
                     total_gradnorms[loss_name] += mse_gradnorms[loss_name]
             
             for loss_name in loss_dict.keys():
                 if "percep" in loss_name                              :
-                    res = parse.parse("{_}percep_{loss1}->{loss2}", loss_name)
+                    res = parse.parse("{_}ercep_{loss1}->{loss2}", loss_name)
                     grad_mse_coeffs[loss_name] = total_gradnorms[f"direct_{res['loss1']}"] - mse_gradnorms[loss_name]
                     grad_mse_coeffs[loss_name] /= direct_num[f"direct_{res['loss1']}"] * total_gradnorms[f"direct_{res['loss1']}"]
                 else:

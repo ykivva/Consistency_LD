@@ -52,13 +52,13 @@ from fire import Fire
 import pdb
 
 def main(
-    loss_config="", mode="winrate",
+    loss_config="", mode="latent_space",
     fast=False, batch_size=None,
-    subset_size=None, max_epochs=500, dataaug=False, **kwargs,
+    subset_size=None, max_epochs=500, dataaug=False, backward=False, **kwargs,
 ):
 
     # CONFIG
-    batch_size = batch_size or (4 if fast else 64)
+    batch_size = batch_size or (4 if fast else 32)
     energy_loss = get_energy_loss(config=loss_config, mode=mode, **kwargs)
 
     # DATA LOADING
@@ -126,9 +126,12 @@ def main(
         
         graph.train()
         for _ in range(0, train_step):
-            train_loss, direct_coeff = energy_loss(graph, realities=[train], compute_grad_ratio=True)
+            train_loss, direct_coeff = energy_loss(
+                graph, realities=[train],
+                compute_grad_ratio=True, backward=backward
+            )
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
-            graph.step(train_loss)
+            graph.step(train_loss, backward=backward)
             train.step()
             logger.update("loss", train_loss)
 

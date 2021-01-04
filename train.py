@@ -54,7 +54,7 @@ import pdb
 def main(
     loss_config="", mode="latent_space",
     fast=False, batch_size=None,
-    subset_size=None, max_epochs=500, dataaug=False, backward=False, **kwargs,
+    subset_size=None, max_epochs=500, dataaug=False, reset_grads=True, **kwargs,
 ):
 
     # CONFIG
@@ -107,13 +107,17 @@ def main(
     graph.eval()
     with torch.no_grad():
         for _ in range(0, val_step*4):
-            val_loss, _ = energy_loss(graph, realities=[val])
+            val_loss, _ = energy_loss(
+                graph, realities=[val], reset_grads=reset_grads
+            )
             val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
             logger.update("loss", val_loss)
             
         for _ in range(0, train_step*4):
-            train_loss, _ = energy_loss(graph, realities=[train])
+            train_loss, _ = energy_loss(
+                graph, realities=[train], reset_grads=reset_grads
+            )
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             train.step()
             logger.update("loss", train_loss)
@@ -128,10 +132,10 @@ def main(
         for _ in range(0, train_step):
             train_loss, direct_coeff = energy_loss(
                 graph, realities=[train],
-                compute_grad_ratio=True, backward=backward
+                compute_grad_ratio=True, reset_grads=reset_grads
             )
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
-            graph.step(train_loss, backward=backward)
+            graph.step(train_loss, reset_grads=reset_grads)
             train.step()
             logger.update("loss", train_loss)
 

@@ -51,12 +51,11 @@ class TaskGraph(TrainableModel):
                 transfer_down.load_weights(path_down)
                 
             transfer_down.name = task.name + "_down"
-            transfer_down.freezed = False
+            transfer_down.freezed = task in self.tasks_out.get("freeze")
             self.edges_out[transfer_down.name] = transfer_down
             self.edges_out_parallel[transfer_down.name] = nn.DataParallel(transfer_down) if USE_CUDA else transfer_down
             
-            if task.name in self.freeze_list:
-                transfer_down.freezed = True
+            if transfer_down.freezed:
                 for p in transfer_down.parameters():
                     p.requires_grad = False
         
@@ -67,12 +66,11 @@ class TaskGraph(TrainableModel):
                 transfer_up.load_weights(path_up)
             
             transfer_up.name = task.name + "_up"
-            transfer_up.freezed = False
+            transfer_up.freezed = task in self.tasks_in.get("freeze")
             self.edges_in[transfer_up.name] = transfer_up
             self.edges_in_parallel[transfer_up.name] = nn.DataParallel(transfer_up) if USE_CUDA else transfer_up
             
-            if task.name in self.freeze_list:
-                transfer_up.freezed = True
+            if transfer_up.freezed:
                 for p in transfer_up.parameters():
                     p.requires_grad = False
         
@@ -89,26 +87,22 @@ class TaskGraph(TrainableModel):
                 self.edge_map[key] = transfer
             elif key in self.direct_edges:
                 transfer = Transfer(src_task, dest_task, pretrained=pretrained, finetuned=finetuned)
-                transfer.freezed = False
+                transfer.freezed = key in self.freeze_list
                 
                 if transfer.model_type is None:
                     continue
-                if str((src_task.name, dest_task.name)) not in freeze_list:
+                if not transfer.freezed:
                     self.params[key] = transfer
                 else:
                     print("Setting link: " + str(key) + " not trainable.")
-                    transfer.freezed = True
                     for p in transfer.parameters():
                         p.requires_grad = False
+                
                 try:
                     if not lazy: transfer.load_model()
                 except Exception as e:
                     print(e)
                     IPython.embed()
-                
-                if key in self.freeze_list:
-                    for p in transfer.parameters():
-                        p.requires_grad = False
             elif src_task.name+"_down" in self.edges_out.keys() and dest_task.name+"_up" in self.edges_in.keys():
                 transfer = UNetTransfer(
                     src_task, dest_task,
@@ -123,7 +117,9 @@ class TaskGraph(TrainableModel):
                     print(e)
                     IPython.embed()
             else: continue
+
             self.edge_map[key] = transfer
+        
         self.params = nn.ModuleDict(self.params)
     
     def edge(self, src_task, dest_task):
@@ -184,6 +180,7 @@ class TaskGraph(TrainableModel):
                 IPython.embed()
 
             if use_cache: cache[tuple(path[0:(i+1)])] = x
+        
         if path[-1]==task_configs.tasks.LS:
             model = self.edge(path[-2], path[-1])
             if isinstance(model, nn.DataParallel):

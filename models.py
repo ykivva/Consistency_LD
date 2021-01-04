@@ -71,9 +71,9 @@ class AbstractModel(nn.Module):
         return pred, loss, metrics
 
     # Make one optimizer step w.r.t a loss
-    def step(self, loss, train=True, backward=False):
+    def step(self, loss, train=True, reset_grads=True):
         
-        if not backward:
+        if reset_grads:
             self.zero_grad()
             self.optimizer.zero_grad()
             self.train(train)
@@ -81,6 +81,7 @@ class AbstractModel(nn.Module):
             self.optimizer.zero_grad()
 
             loss.backward()
+        
         self.optimizer.step()
         self.zero_grad()
         self.optimizer.zero_grad()

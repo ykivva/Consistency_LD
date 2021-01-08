@@ -1,1 +1,1 @@
-LS_PERCEPTUAL_x->n|r, .
+PERCEPTUAL_x->n|r, .

@@ -115,7 +115,7 @@ energy_configs = {
         },
     },
     
-    "perceptual_x->n|r": {
+    "perceptual:x->n|r": {
         "paths": {
             "x": [tasks.rgb],
             "n": [tasks.normal],
@@ -124,7 +124,7 @@ energy_configs = {
             "r(x)": [tasks.rgb, tasks.depth_zbuffer],
             "r(n)": [tasks.normal, tasks.depth_zbuffer],
             "n(r)": [tasks.depth_zbuffer, tasks.normal],
-            "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, task.normal],
+            "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.normal],
             "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
         },
         "tasks_in": { 

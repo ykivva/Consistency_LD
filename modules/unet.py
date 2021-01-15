@@ -89,6 +89,10 @@ class UNet_LS_down(nn.Module):
         x = self.relu(self.bn2(self.mid_conv2(x)))
         return [xvals, x]
     
+    def set_grads(self, requires_grad=True):
+        for p in self.parameters():
+            p.requires_grad = requires_grad
+    
     def save(self, path):
         torch.save(self.state_dict(), path)
     
@@ -128,6 +132,10 @@ class UNet_LS_up(nn.Module):
         x = self.relu(self.last_conv2(x))
         
         return x
+    
+    def set_grads(self, requires_grad=True):
+        for p in self.parameters():
+            p.requires_grad = requires_grad
     
     def save(self, path):
         torch.save(self.state_dict(), path)

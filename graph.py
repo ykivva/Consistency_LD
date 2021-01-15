@@ -70,9 +70,7 @@ class TaskGraph(TrainableModel):
             self.edges_in[transfer_up.name] = transfer_up
             self.edges_in_parallel[transfer_up.name] = nn.DataParallel(transfer_up) if USE_CUDA else transfer_up
             
-            if transfer_up.freezed:
-                for p in transfer_up.parameters():
-                    p.requires_grad = False
+            if transfer_up.freezed: transfer_up.set_grads(False)
         
         # construct transfer graph
         for src_task, dest_task in itertools.product(self.tasks, self.tasks):
@@ -95,8 +93,7 @@ class TaskGraph(TrainableModel):
                     self.params[key] = transfer
                 else:
                     print("Setting link: " + str(key) + " not trainable.")
-                    for p in transfer.parameters():
-                        p.requires_grad = False
+                    transfer.set_grads(False)
                 
                 try:
                     if not lazy: transfer.load_model()
@@ -130,49 +127,41 @@ class TaskGraph(TrainableModel):
         key = str((src_task.name, dest_task.name))
         return self.edge_map[key]            
 
-    def sample_path(self, path, reality, use_cache=False, cache={}):
+    def sample_path(self, path, reality, paths_grads=None, use_cache=False, cache={}):
         path = [reality] + path
         x = None
         for i in range(1, len(path)):
             if path[i]==task_configs.tasks.LS: continue
             try:
                 model = self.edge(path[i-1], path[i])
-                if isinstance(model, RealityTransfer) or i<3:
+                if isinstance(model, RealityTransfer) or paths_grads is None:
                     pass
-                elif isinstance(model, UNetTransfer):
+                elif not paths_grads[i-1] and isinstance(model, UNetTransfer):
                     transfer_down = path[i-1].name+"_down"
                     transfer_up = path[i].name+"_up"
+                    
                     model_down = self.edges_out[transfer_down]
                     model_up = self.edges_in[transfer_up]
+                    
                     freezed_up = model_up.freezed
                     freezed_down = model_down.freezed
-                    if not freezed_down:
-                        for p in model_down.parameters():
-                            p.requires_grad = False
-                    if not freezed_up:
-                        for p in model_up.parameters():
-                            p.requires_grad = False
-                elif isinstance(model, Transfer):
+                    
+                    if not freezed_down: model_down.set_grads(False)
+                    if not freezed_up: model_up.set_grads(False)
+                elif not paths_grads[i-1] and isinstance(model, Transfer):
                     freezed = model.freezed
-                    if not freezed:
-                        for p in model.parameters():
-                            p.requires_grad = False
+                    if not freezed: model.set_grads(False)
 
                 x = cache.get(tuple(path[0:(i+1)]), model(x))
                 
-                if isinstance(model, RealityTransfer) or i<3:
+                if isinstance(model, RealityTransfer) or paths_grads is None:
                     pass
-                elif isinstance(model, UNetTransfer):
-                    if not freezed_down:
-                        for p in model_down.parameters():
-                            p.requires_grad = True
-                    if not freezed_up:
-                        for p in model_up.parameters():
-                            p.requires_grad = True
-                elif isinstance(model, Transfer):
-                    if not freezed:
-                        for p in model.parameters():
-                            p.requires_grad = True
+                elif not paths_grads[i-1] and isinstance(model, UNetTransfer):
+                    if not freezed_down: model_down.set_grads(True)
+                    if not freezed_up: model_up.set_grads(True)
+                elif not paths_grads[i-1] and isinstance(model, Transfer):
+                    if not freezed: model.set_grads(True)
+
             except KeyError:
                 return None
             except Exception as e:
@@ -187,15 +176,11 @@ class TaskGraph(TrainableModel):
                 freezed = model.module.freezed
             else:
                 freezed = model.freezed
-            if not freezed:
-                for p in model.parameters():
-                    p.requires_grad = False
+            if not freezed: model.set_grads(False)
+
             x = self.edge(path[-2], path[-1])(x)
             
-            if not freezed:
-                for p in model.parameters():
-                    p.requires_grad=True
-                
+            if not freezed: model.set_grads(True)
             return x[1]
         return x
 

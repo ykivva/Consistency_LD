@@ -53,9 +53,10 @@ class Task(object):
     """ General task output space"""
     def __init__(self, name,
             file_name=None, file_ext="png", file_loader=None,
-            plot_func=None
+            plot_func=None, compute_grads=True
         ):
-
+        '''Initialize an instance of Task. Task - class for basic configuration of its task'''
+        
         super().__init__()
         self.name = name
         self.file_name, self.file_ext = file_name or name, file_ext

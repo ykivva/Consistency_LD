@@ -40,17 +40,30 @@ energy_configs = {
         "paths": {
             "x": [tasks.rgb],
             "n": [tasks.normal],
-            "n(x)": [tasks.rgb, tasks.LS, tasks.normal],
             "r": [tasks.depth_zbuffer],
-            "r(x)": [tasks.rgb, tasks.LS, tasks.depth_zbuffer],
-            "r(n)": [tasks.normal, tasks.LS, tasks.depth_zbuffer],
-            "n(r)": [tasks.depth_zbuffer, tasks.LS, tasks.normal],
-            "r(n(x))": [tasks.rgb, tasks.LS, tasks.normal, tasks.LS, tasks.depth_zbuffer],
-            "n(r(x))": [tasks.rgb, tasks.LS, tasks.depth_zbuffer, tasks.LS, tasks.normal],
+            "n(x)": [tasks.rgb, tasks.normal],
+            "r(x)": [tasks.rgb, tasks.depth_zbuffer],
+            "r(n)": [tasks.normal, tasks.depth_zbuffer],
+            "n(r)": [tasks.depth_zbuffer, tasks.normal],
+            "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+            "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.normal],
             "_(x)": [tasks.rgb, tasks.LS],
-            "_(r(x))": [tasks.rgb, tasks.LS, tasks.depth_zbuffer, tasks.LS],
-            "_(n(x))": [tasks.rgb, tasks.LS, tasks.normal, tasks.LS]
-            
+            "_(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.LS],
+            "_(n(x))": [tasks.rgb, tasks.normal, tasks.LS],
+        },
+        "paths_grads": {
+            "x": [None],
+            "n": [None],
+            "r": [None],
+            "n(x)": [None, True],
+            "r(x)": [None, True],
+            "r(n)": [None, False],
+            "n(r)": [None, False],
+            "r(n(x))": [None, True, False],
+            "n(r(x))": [None, True, False],
+            "_(x)": [None, True],
+            "_(r(x))": [None, True, True],
+            "_(n(x))": [None, True, True], 
         },
         "tasks_in": { 
             "edges": [tasks.normal, tasks.depth_zbuffer],
@@ -110,7 +123,8 @@ energy_configs = {
                     "n(r)",
                     "r(n(x))",
                     "n(r(x))",
-                ]
+                ],
+                error_pairs={"n(x)": "n", "r(n(x))": "r(n)", "r(x)": "r", "n(r(x))": "n(r)"},
             ),
         },
     },
@@ -126,6 +140,17 @@ energy_configs = {
             "n(r)": [tasks.depth_zbuffer, tasks.normal],
             "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.normal],
             "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+        },
+        "paths_grads": {
+            "x": [None],
+            "n": [None],
+            "r": [None],
+            "n(x)": [None, True],
+            "r(x)": [None, True],
+            "r(n)": [None, False],
+            "n(r)": [None, False],
+            "n(r(x))": [None, True, False],
+            "r(n(x))": [None, True, False],
         },
         "tasks_in": { 
             "edges": [tasks.normal, tasks.depth_zbuffer],
@@ -179,7 +204,8 @@ energy_configs = {
                     "n(r)",
                     "r(n(x))",
                     "n(r(x))",
-                ]
+                ],
+                error_pairs={"n(x)": "n", "r(n(x))": "r(n)", "r(x)": "r", "n(r(x))": "n(r)"}
             ),
         },
     },
@@ -192,6 +218,14 @@ energy_configs = {
             "r": [tasks.depth_zbuffer],
             "r(n)": [tasks.normal, tasks.depth_zbuffer],
             "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
+        },
+        "paths_grads": {
+            "x": [None],
+            "n": [None],
+            "r": [None],
+            "n(x)": [None, True],
+            "r(n)": [None, False],
+            "r(n(x))": [None, True, False],
         },
         "tasks_in": { 
             "edges": [tasks.normal],
@@ -230,7 +264,8 @@ energy_configs = {
                     "n(x)",
                     "r(n)",
                     "r(n(x))",
-                ]
+                ],
+                error_pairs={"n(x)": "n", "r(n(x))": "r(n)"}
             ),
         },
     },   
@@ -246,11 +281,12 @@ def coeff_hook(coeff):
 
 class EnergyLoss(object):
 
-    def __init__(self, paths, losses, plots,
+    def __init__(self, paths, losses, plots, paths_grads,
                  tasks_in, tasks_out, freeze_list=[], direct_edges={}
     ):
 
         self.paths, self.losses, self.plots = paths, losses, plots
+        self.paths_grads = paths_grads
         self.tasks_in, self.tasks_out = tasks_in, tasks_out
         self.freeze_list = [str((path[0].name, path[1].name)) for path in freeze_list]
         self.direct_edges = {str((vertice[0].name, vertice[1].name)) for vertice in direct_edges}
@@ -268,11 +304,13 @@ class EnergyLoss(object):
                 
         self.tasks = list(set(self.tasks))
 
-    def compute_paths(self, graph, reality=None, paths=None):
+    def compute_paths(self, graph, reality=None, paths=None, paths_grads=None):
         path_cache = {}
         paths = paths or self.paths
+        paths_grads = paths_grads or self.paths_grads
         path_values = {
-            name: graph.sample_path(path,
+            name: graph.sample_path(
+                path, paths_grads=paths_grads["name"], 
                 reality=reality, use_cache=True, cache=path_cache,
             ) for name, path in paths.items()
         }
@@ -401,13 +439,13 @@ class EnergyLoss(object):
     
     def plot_paths(
         self, graph, logger, realities=[],
-        plot_names=None, epochs=0, tr_step=0, prefix=""
+        epochs=0, tr_step=0, prefix=""
     ):
-        error_pairs = {"n(x)": "n", "r(n(x))": "r(n)", "r(x)": "r", "n(r(x))": "n(r)"} # SHOULD BE DELETED AND ADDED NEW KEY TO THE LOSS CONFIG TO STORE THIS DATA THERE
-        error_names = [f"{path}->{error_pairs[path]}" for path in error_pairs.keys()]
         realities_map = {reality.name: reality for reality in realities}
-        for name, config in (plot_names or self.plots.items()):
+        for name, config in self.plots.items():
             paths = config["paths"]
+            error_pairs = config["error_pairs"]
+            error_names = [f"{path}->{error_pairs[path]}" for path in error_pairs.keys()]
 
             realities = config["realities"]
             images = []

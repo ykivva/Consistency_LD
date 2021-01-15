@@ -121,6 +121,10 @@ the ability to print train and validation metrics.
 class TrainableModel(AbstractModel):
     def __init__(self):
         super().__init__()
+        
+    def set_grads(self, requires_grad=True):
+        for p in self.parameters():
+            p.requires_grad = requires_grad
 
     # Fit on generator for one epoch
     def _process_data(self, datagen, loss_fn=None, train=True, logger=None):

@@ -34,7 +34,7 @@
 
 
   Usage:
-    python -m train perceptual_normal --batch-size 32 --k 8 --max-epochs 100
+    python -m train perceptual_normal --batch-size 64 --k 8 --max-epochs 100
 '''
 
 import torch

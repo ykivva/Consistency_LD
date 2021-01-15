@@ -174,13 +174,17 @@ class TaskGraph(TrainableModel):
             model = self.edge(path[-2], path[-1])
             if isinstance(model, nn.DataParallel):
                 freezed = model.module.freezed
+                if not freezed: model.module.set_grads(False)
             else:
                 freezed = model.freezed
-            if not freezed: model.set_grads(False)
+                if not freezed: model.set_grads(False)
 
             x = self.edge(path[-2], path[-1])(x)
             
-            if not freezed: model.set_grads(True)
+            if isinstance(model, nn.DataParallel):
+                if not freezed: model.module.set_grads(True)
+            else:
+                if not freezed: model.set_grads(True)
             return x[1]
         return x
 

@@ -29,7 +29,6 @@ def get_energy_loss(
     if isinstance(mode, str):
         mode = {
             "standard": EnergyLoss,
-            "winrate": WinRateEnergyLoss,
             "latent_space": LSEnergyLoss,
         }[mode]
     return mode(**energy_configs[config], **kwargs)
@@ -310,7 +309,7 @@ class EnergyLoss(object):
         paths_grads = paths_grads or self.paths_grads
         path_values = {
             name: graph.sample_path(
-                path, paths_grads=paths_grads["name"], 
+                path, paths_grads=paths_grads[name], 
                 reality=reality, use_cache=True, cache=path_cache,
             ) for name, path in paths.items()
         }

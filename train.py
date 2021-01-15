@@ -126,7 +126,7 @@ def main(
     # TRAINING
     for epochs in range(0, max_epochs):
         logger.update("epoch", epochs)
-        energy_loss.plot_paths(graph, logger, realities, prefix="")
+        energy_loss.plot_paths(graph, logger, realities, prefix=f"finish{epochs}")
         
         graph.train()
         for _ in range(0, train_step):

@@ -218,6 +218,10 @@ class UNetTransfer(nn.Module):
         self.to_parallel()
         preds = util_checkpoint(self.model, x) if self.checkpoint else self.model(x)
         return preds
+    
+    def set_grads(self, requires_grad=True):
+        for p in self.parameters():
+            p.requires_grad = requires_grad
 
     def __repr__(self):
         return self.name or str(self.task) + " models"

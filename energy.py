@@ -94,7 +94,7 @@ energy_configs = {
             },
             "direct_depth_zbuffer": {
                 ("train", "val"): [
-                    ("r(x)", "n"),
+                    ("r(x)", "r"),
                 ],
             },
             "percep_depth_zbuffer->normal": {

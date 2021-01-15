@@ -97,6 +97,7 @@ def main(
     # LOGGING
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR_MODELS, exist_ok=True)
+    pdb.set_trace()
     logger = VisdomLogger("train", env=JOB)
     logger.add_hook(lambda logger, data: logger.step(), feature="loss", freq=20)
     logger.add_hook(lambda _, __: graph.save(f"{RESULTS_DIR}/graph.pth", RESULTS_DIR_MODELS), feature="epoch", freq=1)

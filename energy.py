@@ -522,6 +522,8 @@ class LSEnergyLoss(EnergyLoss):
 
     def __init__(self, *args, **kwargs):
         self.k = kwargs.pop('k', 1)
+        self.random_select = kwargs.pop('random_select', True)
+        self.running_stats = {}
 
         super().__init__(*args, **kwargs)
 
@@ -647,5 +649,11 @@ class LSEnergyLoss(EnergyLoss):
     
     def logger_update(self, logger):
         super().logger_update(logger)
+        
+        if self.random_select or len(self.running_stats)<len(self.percep_losses):
+            self.chosen_losses = random.sample(self.percep_losses, self.k)
+        else:
+            self.chosen_losses = sorted(self.running_stats, key=self.running_stats.get, reverse=True)[:self.k]
+
 
         logger.text (f"Chosen losses: {self.chosen_losses}")

@@ -19,7 +19,8 @@ USE_CUDA = torch.cuda.is_available()
 dtype = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
 DOWNSAMPLE = 6
 
-EXPERIMENT, BASE_DIR = open("config/jobinfo.txt").read().strip().split(', ')
+current_dir = os.path.dirname(__file__)
+EXPERIMENT, BASE_DIR = open(os.path.join(current_dir, "config/jobinfo.txt")).read().strip().split(', ')
 JOB = "_".join(EXPERIMENT.split("_")[0:-1])
 
 MODELS_DIR = f"{BASE_DIR}/models"
@@ -29,19 +30,6 @@ RESULTS_DIR = f"{BASE_DIR}/results/results_{EXPERIMENT}"
 RESULTS_DIR_MODELS = f"{BASE_DIR}/results/results_{EXPERIMENT}/models"
 SHARED_DIR = f"/scratch/consistency_shared"
 OOD_DIR = f"{SHARED_DIR}/ood_standard_set"
-
-# BASELINE UTILS
-EXPERIMENT_BASELINE = open("config/jobinfo_baseline.txt").read().strip()
-RESULTS_DIR_BASELINE = f"{BASE_DIR}/baseline/results/results_{EXPERIMENT_BASELINE}"
-RESULTS_DIR_MODELS_BASELINE = f"{BASE_DIR}/baseline/results/models/"
-JOB_BASELINE = EXPERIMENT_BASELINE
-
-
-# MULTITASK UTILS
-EXPERIMENT_MULTITASK = open("config/jobinfo_multitask.txt").read().strip()
-RESULTS_DIR_MULTITASK = f"{BASE_DIR}/multitask/results/results_{EXPERIMENT_MULTITASK}"
-RESULTS_DIR_MODELS_MULTITASK = f"{BASE_DIR}/multitask/results/models/"
-JOB_MULTITASK = EXPERIMENT_MULTITASK
 
 
 

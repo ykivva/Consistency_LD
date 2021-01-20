@@ -54,7 +54,7 @@ import pdb
 def main(
     loss_config="", mode="latent_space",
     fast=False, batch_size=None,
-    subset_size=None, max_epochs=500, dataaug=False, reset_grads=True, **kwargs,
+    subset_size=None, max_epochs=500, dataaug=False, **kwargs,
 ):
 
     # CONFIG
@@ -64,7 +64,8 @@ def main(
     # DATA LOADING
     train_dataset, val_dataset, train_step, val_step = load_train_val(
         energy_loss.get_tasks("train"),
-        batch_size=batch_size, fast=fast,
+        batch_size=batch_size,
+        fast=fast,
         subset_size=subset_size,
         dataaug=dataaug,
     )
@@ -73,12 +74,19 @@ def main(
         train_dataset = val_dataset
         train_step, val_step = 2,2
 
-    train = RealityTask("train", train_dataset, batch_size=batch_size, shuffle=True)
+    train = RealityTask(
+        "train", train_dataset, batch_size=batch_size, shuffle=True
+    )
     val = RealityTask("val", val_dataset, batch_size=batch_size, shuffle=True)
     
-    test_set = load_test(energy_loss.get_tasks("test"), buildings=['almena', 'albertville','espanola'])
+    test_set = load_test(
+        energy_loss.get_tasks("test"),
+        buildings=['almena', 'albertville','espanola']
+    )
     ood_set = load_ood(energy_loss.get_tasks("ood"))
-    test = RealityTask.from_static("test", test_set, energy_loss.get_tasks("test"))
+    test = RealityTask.from_static(
+        "test", test_set, energy_loss.get_tasks("test")
+    )
     ood = RealityTask.from_static("ood", ood_set, [tasks.rgb,])
     realities = [train, val, test, ood]
 
@@ -93,23 +101,25 @@ def main(
     )
     graph.compile(torch.optim.Adam, lr=3e-5, weight_decay=2e-6, amsgrad=True)
     
-    
     # LOGGING
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR_MODELS, exist_ok=True)
-    pdb.set_trace()
     logger = VisdomLogger("train", env=JOB)
     logger.add_hook(lambda logger, data: logger.step(), feature="loss", freq=20)
-    logger.add_hook(lambda _, __: graph.save(f"{RESULTS_DIR}/graph.pth", RESULTS_DIR_MODELS), feature="epoch", freq=1)
+    logger.add_hook(
+        lambda _, __: graph.save(f"{RESULTS_DIR}/graph.pth", RESULTS_DIR_MODELS),
+        feature="epoch",
+        freq=1
+    )
     energy_loss.logger_hooks(logger)
     energy_loss.plot_paths(graph, logger, realities, prefix="start")
 
-    # BASELINE
+#     # BASELINE
     graph.eval()
     with torch.no_grad():
         for _ in range(0, val_step*4):
             val_loss, _ = energy_loss(
-                graph, realities=[val], reset_grads=reset_grads
+                graph, realities=[val]
             )
             val_loss = sum([val_loss[loss_name] for loss_name in val_loss])
             val.step()
@@ -117,7 +127,7 @@ def main(
             
         for _ in range(0, train_step*4):
             train_loss, _ = energy_loss(
-                graph, realities=[train], reset_grads=reset_grads
+                graph, realities=[train]
             )
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
             train.step()
@@ -127,18 +137,21 @@ def main(
     # TRAINING
     for epochs in range(0, max_epochs):
         logger.update("epoch", epochs)
-        energy_loss.plot_paths(graph, logger, realities, prefix=f"finish{epochs}")
+        energy_loss.plot_paths(graph, logger, realities, prefix="finish")
         
         graph.train()
+        pdb.set_trace()
         for _ in range(0, train_step):
-            train_loss, direct_coeff = energy_loss(
+            train_loss, grad_mse_coeff = energy_loss(
                 graph, realities=[train],
-                compute_grad_ratio=True, reset_grads=reset_grads
+                compute_grad_ratio=True
             )
+            print(grad_mse_coeff)
+            graph.step(train_loss, losses=energy_loss.losses, paths=energy_loss.paths)
             train_loss = sum([train_loss[loss_name] for loss_name in train_loss])
-            graph.step(train_loss, reset_grads=reset_grads)
             train.step()
             logger.update("loss", train_loss)
+            del train_loss
 
         graph.eval()
         for _ in range(0, val_step):

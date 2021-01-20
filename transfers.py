@@ -219,7 +219,7 @@ class UNetTransfer(nn.Module):
         preds = util_checkpoint(self.model, x) if self.checkpoint else self.model(x)
         return preds
     
-    def set_grads(self, requires_grad=True):
+    def set_requires_grad(self, requires_grad=True):
         for p in self.parameters():
             p.requires_grad = requires_grad
 

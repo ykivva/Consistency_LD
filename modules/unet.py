@@ -89,7 +89,7 @@ class UNet_LS_down(nn.Module):
         x = self.relu(self.bn2(self.mid_conv2(x)))
         return [xvals, x]
     
-    def set_grads(self, requires_grad=True):
+    def set_requires_grad(self, requires_grad=True):
         for p in self.parameters():
             p.requires_grad = requires_grad
     
@@ -133,7 +133,7 @@ class UNet_LS_up(nn.Module):
         
         return x
     
-    def set_grads(self, requires_grad=True):
+    def set_requires_grad(self, requires_grad=True):
         for p in self.parameters():
             p.requires_grad = requires_grad
     

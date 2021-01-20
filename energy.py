@@ -50,20 +50,6 @@ energy_configs = {
             "_(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.LS],
             "_(n(x))": [tasks.rgb, tasks.normal, tasks.LS],
         },
-        "paths_grads": {
-            "x": [None],
-            "n": [None],
-            "r": [None],
-            "n(x)": [None, True],
-            "r(x)": [None, True],
-            "r(n)": [None, False],
-            "n(r)": [None, False],
-            "r(n(x))": [None, True, False],
-            "n(r(x))": [None, True, False],
-            "_(x)": [None, True],
-            "_(r(x))": [None, True, True],
-            "_(n(x))": [None, True, True], 
-        },
         "tasks_in": { 
             "edges": [tasks.normal, tasks.depth_zbuffer],
             "freeze": [],
@@ -77,35 +63,53 @@ energy_configs = {
         "freeze_list": [
         ],
         "losses": {
-            "direct_normal": {
-                ("train", "val"): [
+            "direct:normal->depth_zbuffer": {
+                ("train", "val"): (
+                    ("r(n)", "r"),
+                    ([None, True], [None])
+                )
+            },
+            "direct:depth->normal": {
+                ("train", "val"): (
+                    ("n(r)", "n"),
+                    ([None, True], [None])
+                )
+            },
+            "direct:rgb->normal": {
+                ("train", "val"): (
                     ("n(x)", "n"),
-                ],
+                    ([None, True], [None])
+                )
             },
-            "percep_normal->depth_zbuffer": {
-                ("train", "val"): [
+            "percep:rgb->normal->depth_zbuffer": {
+                ("train", "val"): (
                     ("r(n(x))", "r(n)"),
-                ],
+                    ([None, True, False], [None, False])
+                ),
             },
-            "LS_percep_normal->depth_zbuffer": {
-                ("train", "val"): [
-                    ("_(n(x))", "_(x)")
-                ]
+            "percep+LS:rgb->normal": {
+                ("train", "val"): (
+                    ("_(n(x))", "_(x)"),
+                    ([None, True, True], [None, True])
+                )
             },
-            "direct_depth_zbuffer": {
-                ("train", "val"): [
+            "direct:rgb->depth_zbuffer": {
+                ("train", "val"): (
                     ("r(x)", "r"),
-                ],
+                    ([None, True], [None])
+                ),
             },
-            "percep_depth_zbuffer->normal": {
-                ("train", "val"): [
+            "percep:rgb->depth_zbuffer->normal": {
+                ("train", "val"): (
                     ("n(r(x))", "n(r)"),
-                ],
+                    ([None, True, False], [None, False])
+                ),
             },
-            "LS_percep_depth_zbuffer->normal": {
-                ("train", "val"): [
-                    ("_(r(x))", "_(x)")
-                ]
+            "percep+LS:rgb->depth_zbuffer": {
+                ("train", "val"): (
+                    ("_(r(x))", "_(x)"),
+                    ([None, True, True], [None, True])
+                )
             },
         },
         "plots": {
@@ -123,7 +127,12 @@ energy_configs = {
                     "r(n(x))",
                     "n(r(x))",
                 ],
-                error_pairs={"n(x)": "n", "r(n(x))": "r(n)", "r(x)": "r", "n(r(x))": "n(r)"},
+                error_pairs={
+                    "n(x)": "n",
+                    "r(n(x))": "r(n)",
+                    "r(x)": "r",
+                    "n(r(x))": "n(r)"
+                },
             ),
         },
     },
@@ -139,17 +148,6 @@ energy_configs = {
             "n(r)": [tasks.depth_zbuffer, tasks.normal],
             "n(r(x))": [tasks.rgb, tasks.depth_zbuffer, tasks.normal],
             "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
-        },
-        "paths_grads": {
-            "x": [None],
-            "n": [None],
-            "r": [None],
-            "n(x)": [None, True],
-            "r(x)": [None, True],
-            "r(n)": [None, False],
-            "n(r)": [None, False],
-            "n(r(x))": [None, True, False],
-            "r(n(x))": [None, True, False],
         },
         "tasks_in": { 
             "edges": [tasks.normal, tasks.depth_zbuffer],
@@ -168,25 +166,29 @@ energy_configs = {
             [tasks.depth_zbuffer, tasks.normal],
         ],
         "losses": {
-            "direct_normal": {
-                ("train", "val"): [
+            "direct:rgb->normal": {
+                ("train", "val"): (
                     ("n(x)", "n"),
-                ],
+                    ([None, True], [None])
+                )
             },
-            "percep_normal->depth_zbuffer": {
-                ("train", "val"): [
+            "percep:rgb->normal->depth_zbuffer": {
+                ("train", "val"): (
                     ("r(n(x))", "r(n)"),
-                ],
+                    ([None, True, False], [None, False])
+                ),
             },
-            "direct_depth_zbuffer": {
-                ("train", "val"): [
+            "direct:rgb->depth_zbuffer": {
+                ("train", "val"): (
                     ("r(x)", "r"),
-                ],
+                    ([None, True], [None])
+                ),
             },
-            "percep_depth_zbuffer->normal": {
-                ("train", "val"): [
+            "percep:rgb->depth_zbuffer->normal": {
+                ("train", "val"): (
                     ("n(r(x))", "n(r)"),
-                ],
+                    ([None, True, False], [None, False])
+                ),
             },
         },
         "plots": {
@@ -204,7 +206,11 @@ energy_configs = {
                     "r(n(x))",
                     "n(r(x))",
                 ],
-                error_pairs={"n(x)": "n", "r(n(x))": "r(n)", "r(x)": "r", "n(r(x))": "n(r)"}
+                error_pairs={
+                    "n(x)": "n",
+                    "r(n(x))": "r(n)",
+                    "r(x)": "r",
+                    "n(r(x))": "n(r)"}
             ),
         },
     },
@@ -217,14 +223,6 @@ energy_configs = {
             "r": [tasks.depth_zbuffer],
             "r(n)": [tasks.normal, tasks.depth_zbuffer],
             "r(n(x))": [tasks.rgb, tasks.normal, tasks.depth_zbuffer],
-        },
-        "paths_grads": {
-            "x": [None],
-            "n": [None],
-            "r": [None],
-            "n(x)": [None, True],
-            "r(n)": [None, False],
-            "r(n(x))": [None, True, False],
         },
         "tasks_in": { 
             "edges": [tasks.normal],
@@ -242,14 +240,16 @@ energy_configs = {
         ],
         "losses": {
             "direct_normal": {
-                ("train", "val"): [
+                ("train", "val"): (
                     ("n(x)", "n"),
-                ],
+                    ([None, True], [None])
+                ),
             },
             "percep_normal->depth_zbuffer": {
-                ("train", "val"): [
+                ("train", "val"): (
                     ("r(n(x))", "r(n)"),
-                ],
+                    ([None, True, None], [None, False])
+                ),
             },
         },
         "plots": {
@@ -280,12 +280,11 @@ def coeff_hook(coeff):
 
 class EnergyLoss(object):
 
-    def __init__(self, paths, losses, plots, paths_grads,
+    def __init__(self, paths, losses, plots,
                  tasks_in, tasks_out, freeze_list=[], direct_edges={}
     ):
 
         self.paths, self.losses, self.plots = paths, losses, plots
-        self.paths_grads = paths_grads
         self.tasks_in, self.tasks_out = tasks_in, tasks_out
         self.freeze_list = [str((path[0].name, path[1].name)) for path in freeze_list]
         self.direct_edges = {str((vertice[0].name, vertice[1].name)) for vertice in direct_edges}
@@ -293,9 +292,9 @@ class EnergyLoss(object):
 
         self.tasks = []
         for _, loss_item in self.losses.items():
-            for realities, losses in loss_item.items():
-                for path1, path2 in losses:
-                    self.tasks += self.paths[path1] + self.paths[path2]
+            for realities, loss_config in loss_item.items():
+                loss, grads_config = loss_config
+                self.tasks += self.paths[loss[0]] + self.paths[loss[1]]
         
         for name, config in self.plots.items():
             for path in config["paths"]:
@@ -303,14 +302,13 @@ class EnergyLoss(object):
                 
         self.tasks = list(set(self.tasks))
 
-    def compute_paths(self, graph, reality=None, paths=None, paths_grads=None):
+    def compute_paths(self, graph, reality=None, paths=None):
         path_cache = {}
         paths = paths or self.paths
-        paths_grads = paths_grads or self.paths_grads
         path_values = {
             name: graph.sample_path(
-                path, paths_grads=paths_grads[name], 
-                reality=reality, use_cache=True, cache=path_cache,
+                path, reality=reality,
+                use_cache=True, cache=path_cache,
             ) for name, path in paths.items()
         }
         del path_cache
@@ -319,10 +317,10 @@ class EnergyLoss(object):
     def get_tasks(self, reality):
         tasks = []
         for _, loss_item in self.losses.items():
-            for realities, losses in loss_item.items():
+            for realities, loss_config in loss_item.items():
                 if reality in realities:
-                    for path1, path2 in losses:
-                        tasks += [self.paths[path1][0], self.paths[path2][0]]
+                    paths, paths_grads = loss_config
+                    tasks += [self.paths[paths[0]][0], self.paths[paths[1]][0]]
 
         for name, config in self.plots.items():
             if reality in config["realities"]:
@@ -335,21 +333,19 @@ class EnergyLoss(object):
         loss = {}
         for reality in realities:
             loss_dict = {}
-            losses = []
-            all_loss_types = set()
+            loss_configs = []
             for loss_type, loss_item in self.losses.items():
-                all_loss_types.add(loss_type)
                 loss_dict[loss_type] = []
-                for realities_l, data in loss_item.items():
+                for realities_l, loss_config in loss_item.items():
                     if reality.name in realities_l:
-                        loss_dict[loss_type] += data
+                        loss_dict[loss_type] += [loss_config[0]]
                         if loss_types is not None and loss_type in loss_types:
-                            losses += data
+                            loss_configs += [loss_config]
           
             path_values = self.compute_paths(graph,
                 paths={
                     path: self.paths[path] for path in \
-                    set(path for paths in losses for path in paths)
+                    set(path for loss_config in loss_configs for path in loss_config[0])
                     },
                 reality=reality)
 
@@ -374,7 +370,7 @@ class EnergyLoss(object):
                     )
                     loss[loss_type] += path_loss
                     loss_name = loss_type+"_mae"
-                    self.metrics[reality.name][f"{loss_name} : {path1} -> {path2}"] += [path_loss.mean().detach().cpu()]
+                    self.metrics[reality.name][f"{loss_name}: ||{path1} - {path2}||"] += [path_loss.mean().detach().cpu()]
                     
                     #COMPUTE MSE LOSS
                     path_loss, _ = output_task.norm(
@@ -383,7 +379,7 @@ class EnergyLoss(object):
                         compute_mse=True
                     )
                     loss_name = loss_type+"_mse"
-                    self.metrics[reality.name][f"{loss_name} : {path1} -> {path2}"] += [path_loss.mean().detach().cpu()]
+                    self.metrics[reality.name][f"{loss_name}: ||{path1} - {path2}||"] += [path_loss.mean().detach().cpu()]
 
         return loss
     
@@ -391,14 +387,14 @@ class EnergyLoss(object):
         
         name_to_realities = defaultdict(list)
         for loss_type, loss_item in self.losses.items():
-            for realities, losses in loss_item.items():
-                for path1, path2 in losses:
-                    loss_name = loss_type+"_mae"
-                    name = loss_name+" : "+path1 + " -> " + path2
-                    name_to_realities[name] += list(realities)
-                    loss_name =  loss_type + "_mse"
-                    name = loss_name+" : "+path1 + " -> " + path2
-                    name_to_realities[name] += list(realities)
+            for realities, loss_config in loss_item.items():
+                path1, path2 = loss_config[0]
+                loss_name = loss_type+"_mae"
+                name = f"{loss_name}: ||{path1} - {path2}||"
+                name_to_realities[name] += list(realities)
+                loss_name =  loss_type + "_mse"
+                name = f"{loss_name}: ||{path1} - {path2}||"
+                name_to_realities[name] += list(realities)
 
         for name, realities in name_to_realities.items():
             def jointplot(logger, data, name=name, realities=realities):
@@ -408,20 +404,24 @@ class EnergyLoss(object):
                 data = np.stack([data[x] for x in names], axis=1)
                 logger.plot(data, name, opts={"legend": names})
             
-            logger.add_hook(partial(jointplot, name=name, realities=realities), feature=f"{realities[-1]}_{name}", freq=1)
+            logger.add_hook(
+                partial(jointplot, name=name, realities=realities),
+                feature=f"{realities[-1]}_{name}",
+                freq=1
+            )
         
     def logger_update(self, logger):
 
         name_to_realities = defaultdict(list)
         for loss_type, loss_item in self.losses.items():
-            for realities, losses in loss_item.items():
-                for path1, path2 in losses:
-                    loss_name = loss_type+"_mae"
-                    name = loss_name+" : "+path1 + " -> " + path2
-                    name_to_realities[name] += list(realities)
-                    loss_name =  loss_type + "_mse"
-                    name = loss_name+" : "+path1 + " -> " + path2
-                    name_to_realities[name] += list(realities)
+            for realities, loss_config in loss_item.items():
+                path1, path2 = loss_config
+                loss_name = loss_type+"_mae"
+                name = f"{loss_name}: ||{path1} - {path2}||"
+                name_to_realities[name] += list(realities)
+                loss_name =  loss_type + "_mse"
+                name = f"{loss_name}: ||{path1} - {path2}||"
+                name_to_realities[name] += list(realities)
 
         for name, realities in name_to_realities.items():
             for reality in realities:
@@ -519,141 +519,111 @@ class EnergyLoss(object):
     
     
 class LSEnergyLoss(EnergyLoss):
+    '''Class to compute specified losses for the given graph
+    
+    Args:
+        loss_groups (:obj:'list' of :obj:'list' of :obj:'str'): list of subsets of losses 
+            which computes in one iteration.
+        k (int): number of randomly chosen losses from grouped_losses if grouped_losses isn't None,
+            otherwise number of randomly chosen direct losses from losses config
+        
+    '''
 
     def __init__(self, *args, **kwargs):
-        self.k = kwargs.pop('k', 1)
         self.random_select = kwargs.pop('random_select', True)
+        self.loss_groups = kwargs.pop('loss_groups', None)
+        self.k = kwargs.pop('k', 1)
         self.running_stats = {}
 
         super().__init__(*args, **kwargs)
 
-        self.direct_losses = [key[7:] for key in self.losses.keys() if key[0:7]=="direct_"] 
-        self.percep_losses = [key[7:] for key in self.losses.keys() if key[0:7]=="percep_"]
-        self.ls_percep_losses = [key[10:] for key in self.losses.keys() if key[0:10]=="LS_percep_"]
-        print ("percep losses:",self.percep_losses)
-        self.chosen_losses = random.sample(self.percep_losses, self.k)
-
-    def __call__(self, graph, realities=[], loss_types=None, compute_grad_ratio=False, reset_grads=True):
-
-        direct_losses = set()
-        percep_losses = set()
-        ls_percep_losses = set()
-        grad_sum_before = torch.tensor(0, device=DEVICE, dtype=torch.float32)
-        for chosen_loss in self.chosen_losses:
-            res = parse.parse("{loss1}->{loss2}", chosen_loss)
-            direct_losses.add(f"direct_{res['loss1']}")
-            percep_losses.add(f"percep_{chosen_loss}")
-            if chosen_loss in self.ls_percep_losses:
-                ls_percep_losses.add(f"LS_percep_{chosen_loss}")
+        self.direct_losses = [key for key in self.losses.keys() if key[0:7]=="direct:"] 
+        self.percep_losses = [key for key in self.losses.keys() if key[0:7]=="percep:"]
+        self.percep_ls_losses = [key for key in self.losses.keys() if key[0:10]=="percep+LS:"]
+        print("direct losses", self.direct_losses)
+        print("percep losses:", self.percep_losses)
+        print("percep+LS losses:", self.percep_ls_losses)
         
-        loss_types = [("percep_" + loss) for loss in self.chosen_losses] + list(direct_losses) + list(ls_percep_losses)
+        if self.loss_groups is None:
+            self.loss_groups = []
+            for direct_loss in self.direct_losses:
+                loss_group = []
+                loss_group.append(direct_loss)
+                losses = parse.parse("direct:{loss1}->{loss2}", direct_loss)
+                percep_losses = [percep_loss for percep_loss in self.percep_losses
+                                 if f"percep:{losses['loss1']}->{losses['loss2']}" in percep_loss]
+                percep_ls_losses = [percep_ls_loss for percep_ls_loss in self.percep_ls_losses
+                                   if f"percep+LS:{losses['loss1']}->{losses['loss2']}" in percep_ls_loss]
+                loss_group += percep_losses
+                loss_group += percep_ls_losses
+                self.loss_groups.append(loss_group)
+            used_losses = set(loss for loss_group in self.loss_groups for loss in loss_group)
+            unused_losses = set(self.losses.keys()) - used_losses
+            for loss in unused_losses:
+                self.loss_groups.append([loss])                
+        
+        self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
+
+    def __call__(self, graph, realities=[], loss_types=None, compute_grad_ratio=False):
+        loss_types = [loss for loss_group in self.chosen_loss_groups for loss in loss_group]
         loss_dict = super().__call__(graph, realities=realities, loss_types=loss_types, reduce=False)
 
-        grad_mse_coeffs = dict.fromkeys(loss_dict.keys(), 1.0)
+        grad_mae_coeffs = dict.fromkeys(loss_dict.keys(), 1.0)
         ########### to compute loss coefficients #############
         if compute_grad_ratio:
             mae_gradnorms = dict.fromkeys(loss_dict.keys(), 1.0)
-            total_gradnorms = dict.fromkeys(direct_losses, 0)
-            direct_num = {}
+            total_gradnorms = defaultdict(lambda:0)
+            num_losses = {}
             
-            #COMPUTE GRADIENT NORMS FOR ALL LOSSES
-            for loss_name in percep_losses:
-                res = parse.parse("percep_{loss1}->{loss2}", loss_name)
-                direct_num[f"direct_{res['loss1']}"] = direct_num.get(f"direct_{res['loss1']}", 0)
-                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
+            for loss_group in self.chosen_loss_groups:
+                direct_loss = loss_group[0]
+                losses = parse.parse("direct:{loss1}->{loss2}", direct_loss)
+                num_losses[direct_loss] = 1
+                target_weights = list(graph.edge_map[f"('{losses['loss1']}', '{losses['loss2']}')"].model.parameters())
                 
-                if not reset_grads:
-                    grad_sum_before = (
-                        sum([l.grad.abs().sum().item() for l in target_weights]) 
-                        / sum([l.numel() for l in target_weights])
-                        )
-                
-                loss_dict[loss_name].mean().backward(retain_graph=True)
-                direct_num[f"direct_{res['loss1']}"] += 1
-                mae_gradnorms[loss_name] = (
-                    sum([l.grad.abs().sum().item() for l in target_weights]) 
-                    / sum([l.numel() for l in target_weights])
-                    ) - grad_sum_before
-                
-                if reset_grads:
-                    graph.zero_grad()
-                    graph.optimizer.zero_grad()
-                del target_weights
-            
-            for loss_name in ls_percep_losses:
-                res = parse.parse("LS_percep_{loss1}->{loss2}", loss_name)
-                direct_num[f"direct_{res['loss1']}"] = direct_num.get(f"direct_{res['loss1']}", 0)
-                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
-                
-                if not reset_grads:
-                    grad_sum_before = (
-                        sum([l.grad.abs().sum().item() for l in target_weights])
-                        / sum([l.numel() for l in target_weights])
-                        )
-                
-                loss_dict[loss_name].mean().backward(retain_graph=True)
-                direct_num[f"direct_{res['loss1']}"] += 1
-                mae_gradnorms[loss_name] = (
+                loss_dict[direct_loss].mean().backward(retain_graph=True)
+                mae_gradnorms[direct_loss] = (
                     sum([l.grad.abs().sum().item() for l in target_weights])
                     / sum([l.numel() for l in target_weights])
-                    ) - grad_sum_before
+                )
                 
-                if reset_grads:
-                    graph.zero_grad()
-                    graph.optimizer.zero_grad()
-                del target_weights
-            
-            for loss_name in direct_losses:
-                res = parse.parse("direct_{loss1}", loss_name)
-                target_weights = list(graph.edge_map[f"('rgb', '{res['loss1']}')"].model.parameters())
+                total_gradnorms[direct_loss] += mae_gradnorms[direct_loss]
                 
-                if not reset_grads:
-                    grad_sum_before = (
+                graph.zero_grad()
+                graph.optimizer.zero_grad()
+                
+                for loss in loss_group[1:]:
+                    num_losses[direct_loss] += 1
+                    loss_dict[loss].mean().backward(retain_graph=True)
+                    mae_gradnorms[loss] = (
                         sum([l.grad.abs().sum().item() for l in target_weights])
                         / sum([l.numel() for l in target_weights])
-                        )
+                    )
+                    total_gradnorms[direct_loss] += mae_gradnorms[loss]
                     
-                loss_dict[loss_name].mean().backward(retain_graph=True)
-                mae_gradnorms[loss_name] = (
-                    sum([l.grad.abs().sum().item() for l in target_weights])
-                    / sum([l.numel() for l in target_weights])
-                    ) - grad_sum_before
-                
-                if reset_grads:
-                    graph.optimizer.zero_grad()
                     graph.zero_grad()
+                    graph.optimizer.zero_grad()
                 del target_weights
-            
-            for loss_name in loss_dict.keys():
-                if "percep" in loss_name:
-                    res = parse.parse("{_}ercep_{loss1}->{loss2}", loss_name)
-                    total_gradnorms[f"direct_{res['loss1']}"] += mae_gradnorms[loss_name]
-                else:
-                    total_gradnorms[loss_name] += mae_gradnorms[loss_name]
-            
-            for loss_name in loss_dict.keys():
-                if "percep" in loss_name                              :
-                    res = parse.parse("{_}ercep_{loss1}->{loss2}", loss_name)
-                    grad_mse_coeffs[loss_name] = total_gradnorms[f"direct_{res['loss1']}"] - mae_gradnorms[loss_name]
-                    grad_mse_coeffs[loss_name] /= direct_num[f"direct_{res['loss1']}"] * total_gradnorms[f"direct_{res['loss1']}"]
-                else:
-                    grad_mse_coeffs[loss_name] = total_gradnorms[loss_name] - mae_gradnorms[loss_name]
-                    grad_mse_coeffs[loss_name] /= total_gradnorms[loss_name]
-        
+                
+                for loss in loss_group:
+                    grad_mae_coeffs[loss] = total_gradnorms[direct_loss] - mae_gradnorms[loss]
+                    grad_mae_coeffs[loss] /= total_gradnorms[direct_loss]
+                    if loss is not direct_loss:
+                        grad_mae_coeffs[loss] /= num_losses[direct_loss]-1
         ###########################################
         
         for loss_name in loss_dict.keys():
-            loss_dict[loss_name] = loss_dict[loss_name].mean() * grad_mse_coeffs[loss_name]
+            loss_dict[loss_name] = loss_dict[loss_name].mean() * grad_mae_coeffs[loss_name]
+           
+        if self.random_select or len(self.running_stats)<len(self.percep_losses):
+            self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
+        else:
+            self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
 
-        return loss_dict, grad_mse_coeffs
+
+        return loss_dict, grad_mae_coeffs
     
     def logger_update(self, logger):
         super().logger_update(logger)
-        
-        if self.random_select or len(self.running_stats)<len(self.percep_losses):
-            self.chosen_losses = random.sample(self.percep_losses, self.k)
-        else:
-            self.chosen_losses = sorted(self.running_stats, key=self.running_stats.get, reverse=True)[:self.k]
-
 
         logger.text (f"Chosen losses: {self.chosen_losses}")

@@ -127,40 +127,14 @@ class TaskGraph(TrainableModel):
         key = str((src_task.name, dest_task.name))
         return self.edge_map[key]            
 
-    def sample_path(self, path, reality, paths_grads=None, use_cache=False, cache={}):
+    def sample_path(self, path, reality, use_cache=False, cache={}):
         path = [reality] + path
         x = None
         for i in range(1, len(path)):
             if path[i]==task_configs.tasks.LS: continue
             try:
                 model = self.edge(path[i-1], path[i])
-                if isinstance(model, RealityTransfer) or paths_grads is None:
-                    pass
-                elif not paths_grads[i-1] and isinstance(model, UNetTransfer):
-                    transfer_down = path[i-1].name+"_down"
-                    transfer_up = path[i].name+"_up"
-                    
-                    model_down = self.edges_out[transfer_down]
-                    model_up = self.edges_in[transfer_up]
-                    
-                    freezed_up = model_up.freezed
-                    freezed_down = model_down.freezed
-                    
-                    if not freezed_down: model_down.set_grads(False)
-                    if not freezed_up: model_up.set_grads(False)
-                elif not paths_grads[i-1] and isinstance(model, Transfer):
-                    freezed = model.freezed
-                    if not freezed: model.set_grads(False)
-
                 x = cache.get(tuple(path[0:(i+1)]), model(x))
-                
-                if isinstance(model, RealityTransfer) or paths_grads is None:
-                    pass
-                elif not paths_grads[i-1] and isinstance(model, UNetTransfer):
-                    if not freezed_down: model_down.set_grads(True)
-                    if not freezed_up: model_up.set_grads(True)
-                elif not paths_grads[i-1] and isinstance(model, Transfer):
-                    if not freezed: model.set_grads(True)
 
             except KeyError:
                 return None
@@ -172,21 +146,36 @@ class TaskGraph(TrainableModel):
         
         if path[-1]==task_configs.tasks.LS:
             model = self.edge(path[-2], path[-1])
-            if isinstance(model, nn.DataParallel):
-                freezed = model.module.freezed
-                if not freezed: model.module.set_grads(False)
-            else:
-                freezed = model.freezed
-                if not freezed: model.set_grads(False)
-
             x = self.edge(path[-2], path[-1])(x)
-            
-            if isinstance(model, nn.DataParallel):
-                if not freezed: model.module.set_grads(True)
-            else:
-                if not freezed: model.set_grads(True)
             return x[1]
         return x
+    
+    def step(self, loss, train=True, losses=None, paths=None):
+        self.zero_grad()
+        self.optimizer.zero_grad()
+        self.train(train)
+        self.zero_grad()
+        self.optimizer.zero_grad()
+        
+        if losses is not None:
+            for loss_name in loss:
+                loss_config = list(losses[loss_name].values())[0]
+                path_names, paths_grads = loss_config
+                for path_name, path_grads in zip(path_names, paths_grads):
+                    self.set_requires_grad_path(paths[path_name], path_grads)
+                loss[loss_name].backward(retain_graph=True)
+        else:
+            loss.backward()
+        
+        self.optimizer.step()
+        self.zero_grad()
+        self.optimizer.zero_grad()
+    
+    def set_requires_grad_path(self, path, path_grads):
+        for i in range(1, len(path)):
+            model = self.edge(path[i-1], path[i])
+            for p in model.parameters():
+                p.requires_grad = path_grads[i]
 
     def save(self, weights_file=None, weights_dir=None):
 

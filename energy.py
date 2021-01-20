@@ -626,4 +626,4 @@ class LSEnergyLoss(EnergyLoss):
     def logger_update(self, logger):
         super().logger_update(logger)
 
-        logger.text (f"Chosen losses: {self.chosen_losses}")
+        logger.text (f"Chosen losses: {self.chosen_loss_groups}")

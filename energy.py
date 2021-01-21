@@ -664,16 +664,15 @@ class LSEnergyLoss(EnergyLoss):
         
         for loss_name in loss_dict.keys():
             loss_dict[loss_name] = loss_dict[loss_name].mean() * grad_mae_coeffs[loss_name]
-           
-        if self.random_select or len(self.running_stats)<len(self.percep_losses):
-            self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
-        else:
-            self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
-
 
         return loss_dict, grad_mae_coeffs
     
     def logger_update(self, logger):
         super().logger_update(logger)
+        
+        if self.random_select or len(self.running_stats)<len(self.percep_losses):
+            self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
+        else:
+            self.chosen_loss_groups = random.sample(self.loss_groups, self.k)
 
         logger.text (f"Chosen losses: {self.chosen_loss_groups}")
